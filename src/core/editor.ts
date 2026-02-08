@@ -301,12 +301,22 @@ export class CoreEditor implements EditorInterface {
       return;
     }
 
-    const selection = this.selectionManager.capture();
+    // Always prevent default for handled input types to keep DOM in sync with state
+    const handledTypes = ['insertText', 'insertParagraph', 'insertLineBreak',
+                          'deleteContentBackward', 'deleteContentForward'];
+    if (handledTypes.includes(event.inputType)) {
+      event.preventDefault();
+    }
+
+    // Try capturing current DOM selection; fall back to state selection
+    let selection = this.selectionManager.capture();
+    if (!selection) {
+      selection = this.stateManager.getState().selection;
+    }
     if (!selection) return;
 
     switch (event.inputType) {
       case 'insertText': {
-        event.preventDefault();
         const text = event.data ?? '';
         if (!text) return;
         this.handleTextInsert(selection, text);
@@ -315,19 +325,16 @@ export class CoreEditor implements EditorInterface {
 
       case 'insertParagraph':
       case 'insertLineBreak': {
-        event.preventDefault();
         this.handleEnter(selection);
         break;
       }
 
       case 'deleteContentBackward': {
-        event.preventDefault();
         this.handleBackspace(selection);
         break;
       }
 
       case 'deleteContentForward': {
-        event.preventDefault();
         this.handleDelete(selection);
         break;
       }
@@ -367,6 +374,23 @@ export class CoreEditor implements EditorInterface {
 
     const selection = this.selectionManager.capture();
     if (!selection) return;
+
+    // Protect range selections from being overwritten with collapsed ones
+    // when focus is moving away (e.g., toolbar click). This prevents the
+    // common browser issue where selectionchange fires before the toolbar
+    // mousedown handler's preventDefault() takes effect.
+    const newIsCollapsed = selection.anchor.blockIndex === selection.focus.blockIndex
+                        && selection.anchor.offset === selection.focus.offset;
+    if (newIsCollapsed) {
+      const current = this.stateManager.getState().selection;
+      if (current) {
+        const currentIsRange = current.anchor.blockIndex !== current.focus.blockIndex
+                            || current.anchor.offset !== current.focus.offset;
+        if (currentIsRange && document.activeElement !== this.editableElement) {
+          return; // Preserve the existing range selection
+        }
+      }
+    }
 
     this.stateManager.setSelection(selection);
     this.eventBus.emit('selection:change', { selection });

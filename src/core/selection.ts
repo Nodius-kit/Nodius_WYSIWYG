@@ -82,6 +82,26 @@ export class SelectionManager {
   private resolveFromDOM(domNode: Node, domOffset: number): Position | null {
     if (!this.editableElement) return null;
 
+    // Handle selection at the editable element level
+    // (happens when browser places caret between blocks or in empty editor)
+    if (domNode === this.editableElement) {
+      const childCount = this.editableElement.children.length;
+      if (childCount === 0) return null;
+      if (domOffset >= childCount) {
+        // Past last block — position at end of last block
+        const lastBlock = this.editableElement.children[childCount - 1] as HTMLElement;
+        const blockIndex = childCount - 1;
+        let textLen = 0;
+        const walker = document.createTreeWalker(lastBlock, NodeFilter.SHOW_TEXT);
+        let t: Text | null;
+        while ((t = walker.nextNode() as Text | null)) {
+          textLen += t.textContent?.length ?? 0;
+        }
+        return { blockIndex, path: [], offset: textLen };
+      }
+      return { blockIndex: domOffset, path: [], offset: 0 };
+    }
+
     // Find the nearest block element with data-node-id
     const blockEl = this.findBlockElement(domNode);
     if (!blockEl) return null;

@@ -8,8 +8,14 @@ import {
   listsPlugin,
   toolbarPlugin,
   createImageBase64Plugin,
+  createImageResizePlugin,
+  createImageCropPlugin,
+  createHtmlViewPlugin,
+  paragraphNodeType,
   type CoreEditor,
   type PluginDefinition,
+  type NodeTypeSpec,
+  type MarkTypeSpec,
 } from '@nodius/editor';
 import { generateCode } from '../utils/code-generator';
 
@@ -57,6 +63,26 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     id: 'image', label: 'Image (Base64)', importName: 'createImageBase64Plugin',
     isFactory: true, factoryCall: 'createImageBase64Plugin()', toolbarItems: ['image'],
     createPlugin: () => createImageBase64Plugin(),
+  },
+  {
+    id: 'image-resize', label: 'Image Resize', importName: 'createImageResizePlugin',
+    isFactory: true, factoryCall: 'createImageResizePlugin()', toolbarItems: [],
+    createPlugin: () => createImageResizePlugin(),
+  },
+  {
+    id: 'image-crop', label: 'Image Crop', importName: 'createImageCropPlugin',
+    isFactory: true, factoryCall: 'createImageCropPlugin()', toolbarItems: [],
+    createPlugin: () => createImageCropPlugin(),
+  },
+  {
+    id: 'html-view', label: 'HTML View', importName: 'createHtmlViewPlugin',
+    isFactory: true, factoryCall: 'createHtmlViewPlugin({ nodeTypes, markTypes })',
+    destructure: '{ plugin: htmlViewPlugin }', toolbarItems: ['html-view'],
+    createPlugin: () => {
+      const nodeTypes: NodeTypeSpec[] = [paragraphNodeType, ...headingPlugin.nodeTypes!, ...listsPlugin.nodeTypes!];
+      const markTypes: MarkTypeSpec[] = [...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!];
+      return createHtmlViewPlugin({ nodeTypes, markTypes }).plugin;
+    },
   },
   {
     id: 'history', label: 'History (Undo/Redo)', importName: 'createHistoryPlugin',

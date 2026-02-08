@@ -6,7 +6,7 @@ export { EventBus } from './core/events';
 export { CommandRegistry } from './core/commands';
 export { KeymapRegistry } from './core/keymap';
 export { PluginRegistry } from './core/plugin';
-export { Schema } from './core/schema';
+export { Schema, paragraphNodeType } from './core/schema';
 export { Reconciler } from './core/reconciler';
 export { SelectionManager } from './core/selection';
 export { createHistoryPlugin } from './core/history';

@@ -8,7 +8,13 @@ import {
   listsPlugin,
   toolbarPlugin,
   createImageBase64Plugin,
+  createImageResizePlugin,
+  createImageCropPlugin,
+  createHtmlViewPlugin,
+  paragraphNodeType,
   type CoreEditor,
+  type NodeTypeSpec,
+  type MarkTypeSpec,
 } from '@nodius/editor';
 
 let editor: CoreEditor | null = null;
@@ -34,6 +40,19 @@ export function mount(container: HTMLElement): void {
 
   const { plugin: historyPlugin } = createHistoryPlugin();
 
+  // Collect specs for HTML view plugin
+  const nodeTypes: NodeTypeSpec[] = [
+    paragraphNodeType,
+    ...headingPlugin.nodeTypes!,
+    ...listsPlugin.nodeTypes!,
+  ];
+  const markTypes: MarkTypeSpec[] = [
+    ...boldPlugin.markTypes!,
+    ...italicPlugin.markTypes!,
+    ...underlinePlugin.markTypes!,
+  ];
+  const { plugin: htmlViewPlugin } = createHtmlViewPlugin({ nodeTypes, markTypes });
+
   editor = createEditor({
     plugins: [
       boldPlugin,
@@ -42,6 +61,9 @@ export function mount(container: HTMLElement): void {
       headingPlugin,
       listsPlugin,
       createImageBase64Plugin(),
+      createImageResizePlugin(),
+      createImageCropPlugin(),
+      htmlViewPlugin,
       toolbarPlugin,
       historyPlugin,
     ],
@@ -53,6 +75,8 @@ export function mount(container: HTMLElement): void {
       'ordered-list', 'unordered-list',
       '|',
       'image',
+      '|',
+      'html-view',
     ],
   });
 

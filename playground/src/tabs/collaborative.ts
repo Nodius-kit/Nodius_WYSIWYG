@@ -6,9 +6,13 @@ import {
   underlinePlugin,
   headingPlugin,
   toolbarPlugin,
+  createHtmlViewPlugin,
+  paragraphNodeType,
   MemoryTransport,
   generateDelta,
   type CoreEditor,
+  type NodeTypeSpec,
+  type MarkTypeSpec,
 } from '@nodius/editor';
 
 let editorA: CoreEditor | null = null;
@@ -54,18 +58,30 @@ export function mount(container: HTMLElement): void {
   const { plugin: histA } = createHistoryPlugin();
   const { plugin: histB } = createHistoryPlugin();
 
+  // Collect specs for HTML view plugin
+  const nodeTypes: NodeTypeSpec[] = [paragraphNodeType, ...headingPlugin.nodeTypes!];
+  const markTypes: MarkTypeSpec[] = [
+    ...boldPlugin.markTypes!,
+    ...italicPlugin.markTypes!,
+    ...underlinePlugin.markTypes!,
+  ];
+  const { plugin: htmlViewA } = createHtmlViewPlugin({ nodeTypes, markTypes });
+  const { plugin: htmlViewB } = createHtmlViewPlugin({ nodeTypes, markTypes });
+
   const toolbarLayout = [
     'bold', 'italic', 'underline',
     '|',
     'heading-1', 'heading-2', 'heading-3',
+    '|',
+    'html-view',
   ];
 
   editorA = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, toolbarPlugin, histA],
+    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, htmlViewA, toolbarPlugin, histA],
     toolbar: toolbarLayout,
   });
   editorB = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, toolbarPlugin, histB],
+    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, htmlViewB, toolbarPlugin, histB],
     toolbar: toolbarLayout,
   });
 
