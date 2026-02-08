@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nodius Editor — Basic Example</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 2rem; }
+    h1 { margin-bottom: 1rem; color: #333; }
+    #editor-root { max-width: 800px; margin: 0 auto; }
+    pre#output {
+      max-width: 800px; margin: 2rem auto; padding: 1rem;
+      background: #1e1e1e; color: #d4d4d4; border-radius: 8px;
+      font-size: 13px; overflow-x: auto; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="editor-root">
+    <h1>Nodius Editor</h1>
+    <div id="editor-container"></div>
+    <p style="margin-top: 1rem; color: #666; font-size: 14px;">
+      <strong>Shortcuts:</strong>
+      Ctrl+B (Bold) &middot; Ctrl+I (Italic) &middot; Ctrl+U (Underline) &middot;
+      Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo) &middot;
+      Ctrl+Alt+1/2/3 (Headings)
+    </p>
+  </div>
+
+  <pre id="output"></pre>
+
+  <script type="module">
+    import {
+      createEditor,
+      createHistoryPlugin,
+      boldPlugin,
+      italicPlugin,
+      underlinePlugin,
+      headingPlugin,
+      listsPlugin,
+      toolbarPlugin,
+      createImageBase64Plugin,
+    } from '../dist/index.es.js';
+
+    // Create history plugin (returns both plugin and controller)
+    const { plugin: historyPlugin } = createHistoryPlugin();
+
+    // Create the editor with standard plugins and a configured toolbar layout
+    const editor = createEditor({
+      plugins: [
+        boldPlugin,
+        italicPlugin,
+        underlinePlugin,
+        headingPlugin,
+        listsPlugin,
+        createImageBase64Plugin(),
+        toolbarPlugin,
+        historyPlugin,
+      ],
+      toolbar: [
+        'bold', 'italic', 'underline',
+        '|',
+        'heading-1', 'heading-2', 'heading-3',
+        '|',
+        'ordered-list', 'unordered-list',
+        '|',
+        'image',
+      ],
+    });
+
+    // Mount into the DOM
+    editor.mount(document.getElementById('editor-container'));
+
+    // Display document state
+    const output = document.getElementById('output');
+    editor.on('state:change', (state) => {
+      output.textContent = JSON.stringify(state.doc, null, 2);
+    });
+
+    // Show initial state
+    output.textContent = JSON.stringify(editor.getState().doc, null, 2);
+  </script>
+</body>
+</html>

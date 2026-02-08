@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nodius Editor — Collaboration Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; padding: 2rem; }
+    h1 { margin-bottom: 0.5rem; color: #333; }
+    p.subtitle { margin-bottom: 1.5rem; color: #666; font-size: 14px; }
+    .editors { display: flex; gap: 2rem; max-width: 1200px; margin: 0 auto; }
+    .editor-panel {
+      flex: 1; background: #fff; border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 1rem;
+    }
+    .editor-panel h2 { margin-bottom: 0.5rem; font-size: 16px; }
+    .client-a h2 { color: #2563eb; }
+    .client-b h2 { color: #dc2626; }
+    #log {
+      max-width: 1200px; margin: 2rem auto; padding: 1rem;
+      background: #1e1e1e; color: #d4d4d4; border-radius: 8px;
+      font-size: 12px; max-height: 300px; overflow-y: auto;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <h1>Nodius Editor — Collaboration Demo</h1>
+    <p class="subtitle">
+      Two editors connected via MemoryTransport. Edits in one sync to the other
+      with OT-based conflict resolution.
+    </p>
+  </div>
+
+  <div class="editors">
+    <div class="editor-panel client-a">
+      <h2>Client A (Alice)</h2>
+      <div id="editor-a"></div>
+    </div>
+    <div class="editor-panel client-b">
+      <h2>Client B (Bob)</h2>
+      <div id="editor-b"></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+  <script type="module">
+    import {
+      createEditor,
+      createHistoryPlugin,
+      boldPlugin,
+      italicPlugin,
+      underlinePlugin,
+      headingPlugin,
+      toolbarPlugin,
+      MemoryTransport,
+      generateDelta,
+      applyDelta,
+      transform,
+    } from '../dist/index.es.js';
+
+    const log = document.getElementById('log');
+    function addLog(msg) {
+      const line = document.createElement('div');
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // Create linked transports
+    const [transportA, transportB] = MemoryTransport.createPair();
+    transportA.connect();
+    transportB.connect();
+
+    // Create editors
+    const { plugin: histA } = createHistoryPlugin();
+    const { plugin: histB } = createHistoryPlugin();
+
+    const toolbarLayout = [
+      'bold', 'italic', 'underline',
+      '|',
+      'heading-1', 'heading-2', 'heading-3',
+    ];
+
+    const editorA = createEditor({
+      plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, toolbarPlugin, histA],
+      toolbar: toolbarLayout,
+    });
+    const editorB = createEditor({
+      plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, toolbarPlugin, histB],
+      toolbar: toolbarLayout,
+    });
+
+    editorA.mount(document.getElementById('editor-a'));
+    editorB.mount(document.getElementById('editor-b'));
+
+    addLog('Both editors initialized and connected.');
+
+    // Sync: when editor A changes, send delta to B via transport
+    let prevDocA = editorA.getState().doc;
+    editorA.on('state:change', (state) => {
+      const delta = generateDelta(prevDocA, state.doc, 'client-a');
+      prevDocA = state.doc;
+      if (delta.operations.length > 0) {
+        addLog(`Client A: ${delta.operations.length} op(s) → sending to B`);
+        transportA.send(delta);
+      }
+    });
+
+    let prevDocB = editorB.getState().doc;
+    editorB.on('state:change', (state) => {
+      const delta = generateDelta(prevDocB, state.doc, 'client-b');
+      prevDocB = state.doc;
+      if (delta.operations.length > 0) {
+        addLog(`Client B: ${delta.operations.length} op(s) → sending to A`);
+        transportB.send(delta);
+      }
+    });
+
+    // Receive deltas
+    let applyingRemote = false;
+
+    transportA.onReceive((delta) => {
+      if (applyingRemote) return;
+      applyingRemote = true;
+      addLog(`Client A received ${delta.operations.length} op(s) from B`);
+      // Apply remote ops via dispatch
+      editorA.dispatch({
+        operations: delta.operations,
+        origin: 'remote',
+        timestamp: delta.timestamp,
+      });
+      prevDocA = editorA.getState().doc;
+      applyingRemote = false;
+    });
+
+    transportB.onReceive((delta) => {
+      if (applyingRemote) return;
+      applyingRemote = true;
+      addLog(`Client B received ${delta.operations.length} op(s) from A`);
+      editorB.dispatch({
+        operations: delta.operations,
+        origin: 'remote',
+        timestamp: delta.timestamp,
+      });
+      prevDocB = editorB.getState().doc;
+      applyingRemote = false;
+    });
+
+    addLog('Collaboration sync active. Type in either editor!');
+  </script>
+</body>
+</html>

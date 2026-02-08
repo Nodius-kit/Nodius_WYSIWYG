@@ -1,0 +1,287 @@
+/* ─── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #f0f2f5;
+  color: #1a1a1a;
+}
+
+/* ─── Header ───────────────────────────────────────────────── */
+.pg-header {
+  background: #1e293b;
+  color: #f1f5f9;
+  padding: 1rem 2rem;
+}
+.pg-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* ─── Tab Bar ──────────────────────────────────────────────── */
+.pg-tabs {
+  display: flex;
+  gap: 0;
+  background: #334155;
+  padding: 0 2rem;
+}
+.pg-tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pg-tab:hover { color: #e2e8f0; }
+.pg-tab.active {
+  color: #fff;
+  border-bottom-color: #3b82f6;
+}
+
+/* ─── Content Area ─────────────────────────────────────────── */
+.pg-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* ─── Shared Panel Styles ──────────────────────────────────── */
+.panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.panel h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #334155;
+}
+
+/* ─── Code Output ──────────────────────────────────────────── */
+pre.code-output {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ─── Shortcuts Hint ───────────────────────────────────────── */
+.shortcuts {
+  color: #64748b;
+  font-size: 0.8125rem;
+  margin-top: 0.75rem;
+}
+.shortcuts strong { color: #475569; }
+
+/* ─── Collab: Side by Side ─────────────────────────────────── */
+.collab-editors {
+  display: flex;
+  gap: 1.5rem;
+}
+.collab-editors .editor-panel {
+  flex: 1;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 1rem;
+}
+.collab-editors .editor-panel h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.collab-editors .client-a h2 { color: #2563eb; }
+.collab-editors .client-b h2 { color: #dc2626; }
+
+.collab-log {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  margin-top: 1.5rem;
+}
+
+/* ─── Custom Plugin: source display ────────────────────────── */
+.source-panel pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 13px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* ─── Builder: 3-Column Layout ─────────────────────────────── */
+.builder-layout {
+  display: grid;
+  grid-template-columns: 240px 300px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Builder — Plugin Checkboxes */
+.builder-plugins label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.builder-plugins label.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.builder-plugins input[type="checkbox"] {
+  accent-color: #3b82f6;
+  width: 16px;
+  height: 16px;
+}
+
+/* Builder — Toolbar Items List */
+.toolbar-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.toolbar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}
+.toolbar-item .item-name {
+  flex: 1;
+  font-weight: 500;
+}
+.toolbar-item.separator .item-name {
+  color: #94a3b8;
+  text-align: center;
+}
+.toolbar-item button {
+  background: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #475569;
+  transition: background 0.1s;
+}
+.toolbar-item button:hover {
+  background: #e2e8f0;
+}
+
+/* Builder — Add Buttons */
+.builder-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+.builder-actions button,
+.builder-actions select {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  color: #334155;
+}
+.builder-actions button:hover {
+  background: #f1f5f9;
+}
+
+/* Builder — Drag & Drop */
+.toolbar-item {
+  cursor: grab;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.toolbar-item.dragging {
+  opacity: 0.4;
+}
+.toolbar-item.drag-over-above {
+  border-top: 2px solid #3b82f6;
+}
+.toolbar-item.drag-over-below {
+  border-bottom: 2px solid #3b82f6;
+}
+.toolbar-item .drag-grip {
+  color: #94a3b8;
+  cursor: grab;
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+}
+.toolbar-item .move-btn {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  opacity: 0.5;
+}
+.toolbar-item .move-btn:hover {
+  opacity: 1;
+}
+
+/* Builder — Preview + Code */
+.builder-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.builder-preview .preview-editor {
+  min-height: 120px;
+}
+.builder-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.copy-btn {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: #475569;
+}
+.copy-btn:hover { background: #f1f5f9; }
+.copy-btn.copied {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}

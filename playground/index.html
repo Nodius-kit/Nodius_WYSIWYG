@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nodius Editor Playground</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <header class="pg-header">
+    <h1>Nodius Editor Playground</h1>
+  </header>
+
+  <nav class="pg-tabs" id="tab-bar">
+    <button class="pg-tab active" data-tab="basic">Basic</button>
+    <button class="pg-tab" data-tab="collaborative">Collaboration</button>
+    <button class="pg-tab" data-tab="custom-plugin">Custom Plugin</button>
+    <button class="pg-tab" data-tab="builder">Toolbar Builder</button>
+  </nav>
+
+  <main class="pg-content" id="tab-content"></main>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
