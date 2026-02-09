@@ -462,6 +462,86 @@ describe('Operations', () => {
     });
   });
 
+  // ─── normalization ─────────────────────────────────────────
+  describe('normalization', () => {
+    it('should merge adjacent text nodes with same marks after remove_mark', () => {
+      // "Hello World" all bold → remove bold from all → should be 1 text node
+      const doc: Document = {
+        id: generateId(), kind: 'document', version: 0,
+        children: [{
+          id: generateId(), kind: 'element', type: 'paragraph', attrs: {},
+          children: [
+            { id: generateId(), kind: 'text', text: 'Hello ', marks: [{ type: 'bold' }] },
+            { id: generateId(), kind: 'text', text: 'World', marks: [{ type: 'bold' }] },
+          ],
+        }],
+      };
+      const result = applyOperation(doc, {
+        type: 'remove_mark', path: [0], offset: 0, length: 11,
+        mark: { type: 'bold' },
+      });
+      expect(result.children[0].children).toHaveLength(1);
+      expect(getBlockText(result, 0)).toBe('Hello World');
+    });
+
+    it('should merge adjacent bold text nodes after add_mark', () => {
+      // "Hello" (plain) + "World" (plain) → bold all → should be 1 bold node
+      const doc: Document = {
+        id: generateId(), kind: 'document', version: 0,
+        children: [{
+          id: generateId(), kind: 'element', type: 'paragraph', attrs: {},
+          children: [
+            { id: generateId(), kind: 'text', text: 'Hello ', marks: [] },
+            { id: generateId(), kind: 'text', text: 'World', marks: [] },
+          ],
+        }],
+      };
+      const result = applyOperation(doc, {
+        type: 'add_mark', path: [0], offset: 0, length: 11,
+        mark: { type: 'bold' },
+      });
+      expect(result.children[0].children).toHaveLength(1);
+      const textNode = result.children[0].children[0] as TextNode;
+      expect(textNode.text).toBe('Hello World');
+      expect(textNode.marks).toEqual([{ type: 'bold' }]);
+    });
+
+    it('should merge text nodes at boundary after merge_nodes', () => {
+      // Block1: "Hello" (plain) | Block2: " World" (plain)
+      // After merge: should be 1 text node "Hello World"
+      const doc = createDocWith([
+        { type: 'paragraph', text: 'Hello' },
+        { type: 'paragraph', text: ' World' },
+      ]);
+      const result = applyOperation(doc, {
+        type: 'merge_nodes', path: [], offset: 1,
+      });
+      expect(result.children[0].children).toHaveLength(1);
+      expect(getBlockText(result, 0)).toBe('Hello World');
+    });
+
+    it('should not merge text nodes with different marks', () => {
+      const doc: Document = {
+        id: generateId(), kind: 'document', version: 0,
+        children: [{
+          id: generateId(), kind: 'element', type: 'paragraph', attrs: {},
+          children: [
+            { id: generateId(), kind: 'text', text: 'Hello ', marks: [{ type: 'bold' }] },
+            { id: generateId(), kind: 'text', text: 'World', marks: [] },
+          ],
+        }],
+      };
+      // Remove bold from first 6 chars only
+      const result = applyOperation(doc, {
+        type: 'remove_mark', path: [0], offset: 0, length: 6,
+        mark: { type: 'bold' },
+      });
+      // "Hello " (no marks) + "World" (no marks) → should merge into 1
+      expect(result.children[0].children).toHaveLength(1);
+      expect(getBlockText(result, 0)).toBe('Hello World');
+    });
+  });
+
   // ─── applyTransaction ───────────────────────────────────
   describe('applyTransaction', () => {
     it('should apply multiple operations in sequence', () => {

@@ -10,7 +10,9 @@ import {
   createImageBase64Plugin,
   createImageResizePlugin,
   createImageCropPlugin,
+  createImageToolbarPlugin,
   createHtmlViewPlugin,
+  createLinkPlugin,
   paragraphNodeType,
   type CoreEditor,
   type PluginDefinition,
@@ -75,6 +77,16 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     createPlugin: () => createImageCropPlugin(),
   },
   {
+    id: 'image-toolbar', label: 'Image Toolbar', importName: 'createImageToolbarPlugin',
+    isFactory: true, factoryCall: 'createImageToolbarPlugin()', toolbarItems: [],
+    createPlugin: () => createImageToolbarPlugin(),
+  },
+  {
+    id: 'link', label: 'Link', importName: 'createLinkPlugin',
+    isFactory: true, factoryCall: 'createLinkPlugin()', toolbarItems: ['link'],
+    createPlugin: () => createLinkPlugin(),
+  },
+  {
     id: 'html-view', label: 'HTML View', importName: 'createHtmlViewPlugin',
     isFactory: true, factoryCall: 'createHtmlViewPlugin({ nodeTypes, markTypes })',
     destructure: '{ plugin: htmlViewPlugin }', toolbarItems: ['html-view'],
@@ -108,6 +120,8 @@ function getDefaults() {
     enabled: new Set(PLUGIN_REGISTRY.map((p) => p.id)),
     toolbar: [
       'bold', 'italic', 'underline',
+      '|',
+      'link',
       '|',
       'heading-1', 'heading-2', 'heading-3',
       '|',

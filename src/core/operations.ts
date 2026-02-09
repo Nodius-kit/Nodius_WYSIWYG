@@ -177,7 +177,7 @@ function addMark(
   // path points to a block, offset/length define text range within it
   return updateAtPath(doc, path, (block) => {
     if (!isElementNode(block)) throw new Error('add_mark target must be an element node');
-    return applyMarkToRange(block, offset, length, mark, 'add');
+    return normalizeBlock(applyMarkToRange(block, offset, length, mark, 'add'));
   });
 }
 
@@ -190,7 +190,7 @@ function removeMark(
 ): Document {
   return updateAtPath(doc, path, (block) => {
     if (!isElementNode(block)) throw new Error('remove_mark target must be an element node');
-    return applyMarkToRange(block, offset, length, mark, 'remove');
+    return normalizeBlock(applyMarkToRange(block, offset, length, mark, 'remove'));
   });
 }
 
@@ -254,6 +254,28 @@ function applyMarkToRange(
   }
 
   return { ...block, children: newChildren };
+}
+
+// ─── Normalization ───────────────────────────────────────────
+
+function marksArrayEqual(a: readonly Mark[], b: readonly Mark[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((m, i) => marksEqual(m, b[i]));
+}
+
+function normalizeBlock(block: ElementNode): ElementNode {
+  const merged: EditorNode[] = [];
+  for (const child of block.children) {
+    if (child.kind !== 'text') { merged.push(child); continue; }
+    const prev = merged[merged.length - 1];
+    if (prev?.kind === 'text' && marksArrayEqual(prev.marks, child.marks)) {
+      merged[merged.length - 1] = { ...prev, text: prev.text + child.text };
+    } else {
+      merged.push(child);
+    }
+  }
+  if (merged.length === block.children.length) return block;
+  return { ...block, children: merged };
 }
 
 // ─── Structural Operations ───────────────────────────────────
@@ -424,10 +446,10 @@ function mergeNodes(doc: Document, path: readonly number[], offset: number): Doc
     if (!isElementNode(first) || !isElementNode(second)) {
       throw new Error('merge_nodes targets must be element nodes');
     }
-    const merged: ElementNode = {
+    const merged = normalizeBlock({
       ...first,
       children: [...first.children, ...second.children],
-    };
+    });
     const children = [...doc.children];
     children.splice(offset - 1, 2, merged);
     return { ...doc, children };
@@ -440,10 +462,10 @@ function mergeNodes(doc: Document, path: readonly number[], offset: number): Doc
     if (!isElementNode(first) || !isElementNode(second)) {
       throw new Error('merge_nodes targets must be element nodes');
     }
-    const merged: ElementNode = {
+    const merged = normalizeBlock({
       ...first,
       children: [...first.children, ...second.children],
-    };
+    });
     const children = [...parent.children];
     children.splice(offset - 1, 2, merged);
     return { ...parent, children };

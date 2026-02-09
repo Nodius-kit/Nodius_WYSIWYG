@@ -10,7 +10,9 @@ import {
   createImageBase64Plugin,
   createImageResizePlugin,
   createImageCropPlugin,
+  createImageToolbarPlugin,
   createHtmlViewPlugin,
+  createLinkPlugin,
   paragraphNodeType,
   type CoreEditor,
   type NodeTypeSpec,
@@ -28,7 +30,7 @@ export function mount(container: HTMLElement): void {
       <p class="shortcuts">
         <strong>Shortcuts:</strong>
         Ctrl+B (Bold) &middot; Ctrl+I (Italic) &middot; Ctrl+U (Underline) &middot;
-        Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo) &middot;
+        Ctrl+K (Link) &middot; Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo) &middot;
         Ctrl+Alt+1/2/3 (Headings)
       </p>
     </div>
@@ -39,6 +41,7 @@ export function mount(container: HTMLElement): void {
   `;
 
   const { plugin: historyPlugin } = createHistoryPlugin();
+  const linkPlugin = createLinkPlugin();
 
   // Collect specs for HTML view plugin
   const nodeTypes: NodeTypeSpec[] = [
@@ -50,6 +53,7 @@ export function mount(container: HTMLElement): void {
     ...boldPlugin.markTypes!,
     ...italicPlugin.markTypes!,
     ...underlinePlugin.markTypes!,
+    ...linkPlugin.markTypes!,
   ];
   const { plugin: htmlViewPlugin } = createHtmlViewPlugin({ nodeTypes, markTypes });
 
@@ -60,15 +64,19 @@ export function mount(container: HTMLElement): void {
       underlinePlugin,
       headingPlugin,
       listsPlugin,
+      linkPlugin,
       createImageBase64Plugin(),
       createImageResizePlugin(),
       createImageCropPlugin(),
+      createImageToolbarPlugin(),
       htmlViewPlugin,
       toolbarPlugin,
       historyPlugin,
     ],
     toolbar: [
       'bold', 'italic', 'underline',
+      '|',
+      'link',
       '|',
       'heading-1', 'heading-2', 'heading-3',
       '|',

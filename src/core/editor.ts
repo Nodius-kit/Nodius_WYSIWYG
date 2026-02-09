@@ -8,7 +8,9 @@ import type {
   Transaction,
   Operation,
   PluginContext,
+  TextNode,
 } from './types';
+import { generateId } from './types';
 import { StateManager } from './state';
 import { EventBus } from './events';
 import { CommandRegistry } from './commands';
@@ -116,8 +118,15 @@ export class CoreEditor implements EditorInterface {
     const finalTr = this.pluginRegistry.runOnTransaction(tr, prevState);
     if (finalTr === null) return; // Rejected by plugin
 
+    // For remote transactions without explicit selection, map local selection through incoming ops
+    let adjustedTr = finalTr;
+    if (finalTr.origin === 'remote' && finalTr.selection === undefined && prevState.selection) {
+      const mappedSelection = this.selectionManager.mapThrough(prevState.selection, finalTr.operations);
+      adjustedTr = { ...finalTr, selection: mappedSelection };
+    }
+
     // Apply to state
-    const nextState = this.stateManager.dispatch(finalTr);
+    const nextState = this.stateManager.dispatch(adjustedTr);
 
     // Reconcile DOM
     if (this.editableElement && this.mounted) {
@@ -406,6 +415,31 @@ export class CoreEditor implements EditorInterface {
     this.handleTextInsert(selection, text);
   }
 
+  // ─── Position Resolution ─────────────────────────────────
+
+  private resolveTextPosition(blockIndex: number, charOffset: number): { childIndex: number; localOffset: number } {
+    const block = this.getDoc().children[blockIndex];
+    if (!block) return { childIndex: 0, localOffset: charOffset };
+    let remaining = charOffset;
+    for (let i = 0; i < block.children.length; i++) {
+      const child = block.children[i];
+      if (child.kind === 'text') {
+        if (remaining <= child.text.length) {
+          return { childIndex: i, localOffset: remaining };
+        }
+        remaining -= child.text.length;
+      }
+    }
+    // Past end: target last text node
+    for (let i = block.children.length - 1; i >= 0; i--) {
+      if (block.children[i].kind === 'text') {
+        const t = block.children[i] as TextNode;
+        return { childIndex: i, localOffset: t.text.length };
+      }
+    }
+    return { childIndex: 0, localOffset: 0 };
+  }
+
   // ─── Input Helpers ─────────────────────────────────────
 
   private handleTextInsert(selection: EditorSelection, text: string): void {
@@ -416,17 +450,19 @@ export class CoreEditor implements EditorInterface {
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
+      const delPos = this.resolveTextPosition(anchor.blockIndex, start);
       ops.push({
         type: 'delete_text',
-        path: [anchor.blockIndex, 0],
-        offset: start,
+        path: [anchor.blockIndex, delPos.childIndex],
+        offset: delPos.localOffset,
         length: end - start,
       });
       // Insert at the start position
+      const insPos = this.resolveTextPosition(anchor.blockIndex, start);
       ops.push({
         type: 'insert_text',
-        path: [anchor.blockIndex, 0],
-        offset: start,
+        path: [anchor.blockIndex, insPos.childIndex],
+        offset: insPos.localOffset,
         data: text,
       });
 
@@ -436,10 +472,11 @@ export class CoreEditor implements EditorInterface {
       };
       this.dispatch({ operations: ops, selection: newSel, origin: 'input', timestamp: Date.now() });
     } else {
+      const pos = this.resolveTextPosition(anchor.blockIndex, anchor.offset);
       ops.push({
         type: 'insert_text',
-        path: [anchor.blockIndex, 0],
-        offset: anchor.offset,
+        path: [anchor.blockIndex, pos.childIndex],
+        offset: pos.localOffset,
         data: text,
       });
       const newSel: EditorSelection = {
@@ -456,51 +493,63 @@ export class CoreEditor implements EditorInterface {
     const block = doc.children[anchor.blockIndex];
     if (!block) return;
 
-    // Find which child node the offset falls in, and split there
-    let remaining = anchor.offset;
-    let splitChildIndex = 0;
-    let splitTextOffset = 0;
-
-    for (let i = 0; i < block.children.length; i++) {
-      const child = block.children[i];
-      if (child.kind === 'text') {
-        if (remaining <= child.text.length) {
-          splitChildIndex = i;
-          splitTextOffset = remaining;
-          break;
-        }
-        remaining -= child.text.length;
-      }
-      splitChildIndex = i + 1;
+    // 1. Void block → insert empty paragraph after
+    const spec = this.schema.getNodeType(block.type);
+    if (spec?.group === 'void') {
+      const emptyParagraph = {
+        id: generateId(),
+        kind: 'element' as const,
+        type: 'paragraph',
+        attrs: {},
+        children: [{ id: generateId(), kind: 'text' as const, text: '', marks: [] as const }],
+      };
+      this.dispatch({
+        operations: [{ type: 'insert_node', path: [], offset: anchor.blockIndex + 1, data: emptyParagraph }],
+        selection: {
+          anchor: { blockIndex: anchor.blockIndex + 1, path: [], offset: 0 },
+          focus: { blockIndex: anchor.blockIndex + 1, path: [], offset: 0 },
+        },
+        origin: 'input',
+        timestamp: Date.now(),
+      });
+      return;
     }
 
+    // 2. Resolve position in text node
+    const { childIndex, localOffset } = this.resolveTextPosition(anchor.blockIndex, anchor.offset);
+    const child = block.children[childIndex];
     const ops: Operation[] = [];
 
-    // If we're in the middle of a text node, split it first
-    if (splitTextOffset > 0 && block.children[splitChildIndex]?.kind === 'text') {
-      const textNode = block.children[splitChildIndex] as { text: string };
-      if (splitTextOffset < textNode.text.length) {
-        // We need to split the text node, then split the block
-        // For simplicity, use split_node at the block level after adjusting
-        // Split right after the text portion
-        ops.push({
-          type: 'split_node',
-          path: [anchor.blockIndex],
-          offset: splitChildIndex + 1,
-        });
-        // Then adjust the text in the first block (trim) and second block
-        // Actually, split_node splits at child boundary, not text boundary
-        // We need a different approach for mid-text splits
-      }
-    }
-
-    // Simplified: split block at child index
-    // If cursor is at end of all text, this creates an empty new block
-    if (ops.length === 0) {
+    // 3. If mid-text, split the text node first, then split the block
+    if (child?.kind === 'text' && localOffset > 0 && localOffset < child.text.length) {
+      const afterText = child.text.slice(localOffset);
+      // Delete text after cursor from current text node
+      ops.push({
+        type: 'delete_text',
+        path: [anchor.blockIndex, childIndex],
+        offset: localOffset,
+        length: child.text.length - localOffset,
+      });
+      // Split block after current child (all children after childIndex go to new block)
       ops.push({
         type: 'split_node',
         path: [anchor.blockIndex],
-        offset: block.children.length,
+        offset: childIndex + 1,
+      });
+      // Insert the remaining text at start of new block's first text node
+      ops.push({
+        type: 'insert_text',
+        path: [anchor.blockIndex + 1, 0],
+        offset: 0,
+        data: afterText,
+      });
+    } else {
+      // At child boundary — simple split
+      const splitAt = (child?.kind === 'text' && localOffset === child.text.length) ? childIndex + 1 : childIndex;
+      ops.push({
+        type: 'split_node',
+        path: [anchor.blockIndex],
+        offset: splitAt,
       });
     }
 
@@ -519,11 +568,12 @@ export class CoreEditor implements EditorInterface {
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
+      const pos = this.resolveTextPosition(anchor.blockIndex, start);
       this.dispatch({
         operations: [{
           type: 'delete_text',
-          path: [anchor.blockIndex, 0],
-          offset: start,
+          path: [anchor.blockIndex, pos.childIndex],
+          offset: pos.localOffset,
           length: end - start,
         }],
         selection: {
@@ -562,11 +612,12 @@ export class CoreEditor implements EditorInterface {
 
     // Delete one character before cursor
     if (anchor.offset > 0) {
+      const pos = this.resolveTextPosition(anchor.blockIndex, anchor.offset - 1);
       this.dispatch({
         operations: [{
           type: 'delete_text',
-          path: [anchor.blockIndex, 0],
-          offset: anchor.offset - 1,
+          path: [anchor.blockIndex, pos.childIndex],
+          offset: pos.localOffset,
           length: 1,
         }],
         selection: {
@@ -589,11 +640,12 @@ export class CoreEditor implements EditorInterface {
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
+      const pos = this.resolveTextPosition(anchor.blockIndex, start);
       this.dispatch({
         operations: [{
           type: 'delete_text',
-          path: [anchor.blockIndex, 0],
-          offset: start,
+          path: [anchor.blockIndex, pos.childIndex],
+          offset: pos.localOffset,
           length: end - start,
         }],
         selection: {
@@ -628,11 +680,12 @@ export class CoreEditor implements EditorInterface {
 
     // Delete one character after cursor
     if (anchor.offset < blockLength) {
+      const pos = this.resolveTextPosition(anchor.blockIndex, anchor.offset);
       this.dispatch({
         operations: [{
           type: 'delete_text',
-          path: [anchor.blockIndex, 0],
-          offset: anchor.offset,
+          path: [anchor.blockIndex, pos.childIndex],
+          offset: pos.localOffset,
           length: 1,
         }],
         origin: 'input',

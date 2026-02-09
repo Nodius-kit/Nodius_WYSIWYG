@@ -71,6 +71,20 @@ export { createImageRemotePlugin } from './plugins/image-remote';
 export { createImageResizePlugin } from './plugins/image-resize';
 export { createImageCropPlugin } from './plugins/image-crop';
 export { createHtmlViewPlugin } from './plugins/html-view';
+export { createLinkPlugin } from './plugins/link';
+export { createImageToolbarPlugin } from './plugins/image-toolbar';
+export { strikethroughPlugin } from './plugins/strikethrough';
+export { subscriptPlugin } from './plugins/subscript';
+export { superscriptPlugin } from './plugins/superscript';
+export { highlightPlugin } from './plugins/highlight';
+export { blockquotePlugin } from './plugins/blockquote';
+export { codeBlockPlugin } from './plugins/code-block';
+export { horizontalRulePlugin } from './plugins/horizontal-rule';
+export { alignmentPlugin } from './plugins/alignment';
+
+// ─── UI Utilities ───────────────────────────────────────────
+export { createModal } from './ui/modal';
+export type { ModalOptions, ModalField } from './ui/modal';
 
 // ─── Icons ───────────────────────────────────────────────────
 export { ICONS } from './assets/icons';
@@ -81,3 +95,5 @@ export { VersionVector } from './collaboration/version';
 export { transform } from './collaboration/ot';
 export { CursorSyncManager, mapPosition } from './collaboration/cursor-sync';
 export { MemoryTransport } from './collaboration/transport';
+export { BatchedTransport } from './collaboration/batched-transport';
+export type { BatchedTransportOptions } from './collaboration/batched-transport';

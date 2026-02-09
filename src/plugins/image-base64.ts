@@ -1,6 +1,7 @@
 import type { PluginDefinition, PluginContext, ElementNode, EditorInterface } from '../core/types';
 import { generateId } from '../core/types';
 import { ICONS } from '../assets/icons';
+import { createModal } from '../ui/modal';
 
 function createImageNode(src: string, alt: string = '', width?: number, height?: number): ElementNode {
   return {
@@ -76,12 +77,14 @@ export function createImageBase64Plugin(): PluginDefinition {
         alt: { default: '' },
         title: { default: '' },
         align: { default: 'center' },
+        caption: { default: '' },
         width: { default: undefined as unknown },
         height: { default: undefined as unknown },
       },
       toDOM: (node) => {
         const style = getAlignStyle(node.attrs.align);
-        return ['img', {
+        const caption = String(node.attrs.caption ?? '');
+        const imgAttrs: Record<string, string> = {
           src: String(node.attrs.src ?? ''),
           alt: String(node.attrs.alt ?? ''),
           ...(node.attrs.title ? { title: String(node.attrs.title) } : {}),
@@ -89,17 +92,42 @@ export function createImageBase64Plugin(): PluginDefinition {
           ...(node.attrs.height != null ? { height: String(node.attrs.height) } : {}),
           style,
           'data-align': String(node.attrs.align ?? 'center'),
-        }];
+        };
+        if (caption) {
+          return ['figure', { style: 'text-align:center;margin:1em 0;', 'data-caption': caption },
+            ['img', imgAttrs],
+            ['figcaption', { style: 'font-size:0.875em;color:#64748b;margin-top:0.5em;' }, caption],
+          ];
+        }
+        return ['img', imgAttrs];
       },
-      parseDOM: [{
-        tag: 'img[src]',
-        getAttrs: (dom: HTMLElement) => ({
-          src: dom.getAttribute('src') ?? '',
-          alt: dom.getAttribute('alt') ?? '',
-          title: dom.getAttribute('title') ?? '',
-          align: dom.getAttribute('data-align') ?? 'center',
-        }),
-      }],
+      parseDOM: [
+        {
+          tag: 'figure',
+          getAttrs: (dom: HTMLElement) => {
+            const img = dom.querySelector('img');
+            if (!img) return false;
+            const figcaption = dom.querySelector('figcaption');
+            return {
+              src: img.getAttribute('src') ?? '',
+              alt: img.getAttribute('alt') ?? '',
+              title: img.getAttribute('title') ?? '',
+              align: img.getAttribute('data-align') ?? 'center',
+              caption: figcaption?.textContent ?? '',
+            };
+          },
+        },
+        {
+          tag: 'img[src]',
+          getAttrs: (dom: HTMLElement) => ({
+            src: dom.getAttribute('src') ?? '',
+            alt: dom.getAttribute('alt') ?? '',
+            title: dom.getAttribute('title') ?? '',
+            align: dom.getAttribute('data-align') ?? 'center',
+            caption: '',
+          }),
+        },
+      ],
     }],
 
     init(ctx: PluginContext) {
@@ -132,6 +160,31 @@ export function createImageBase64Plugin(): PluginDefinition {
           operations: [{ type: 'update_attrs', path: [idx], attrs: { alt: newAlt } }],
           origin: 'command',
           timestamp: Date.now(),
+        });
+        return true;
+      });
+
+      ctx.commands.register('edit-image-caption', (editor) => {
+        const idx = getSelectedImageIndex(editor);
+        if (idx === null) return false;
+        const block = editor.getDoc().children[idx];
+        const currentCaption = String(block.attrs.caption ?? '');
+        createModal({
+          title: 'Edit Caption',
+          fields: [{
+            name: 'caption',
+            label: 'Caption',
+            type: 'text',
+            value: currentCaption,
+            placeholder: 'Image caption...',
+          }],
+          onSubmit: (values) => {
+            editor.dispatch({
+              operations: [{ type: 'update_attrs', path: [idx], attrs: { caption: values.caption } }],
+              origin: 'command',
+              timestamp: Date.now(),
+            });
+          },
         });
         return true;
       });

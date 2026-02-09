@@ -7,8 +7,10 @@ import {
   headingPlugin,
   toolbarPlugin,
   createHtmlViewPlugin,
+  createLinkPlugin,
   paragraphNodeType,
   MemoryTransport,
+  BatchedTransport,
   generateDelta,
   type CoreEditor,
   type NodeTypeSpec,
@@ -50,13 +52,17 @@ export function mount(container: HTMLElement): void {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  // Linked transports
-  const [transportA, transportB] = MemoryTransport.createPair();
+  // Linked transports with batching
+  const [rawA, rawB] = MemoryTransport.createPair();
+  const transportA = new BatchedTransport(rawA, { flushInterval: 200, maxBatchSize: 30 });
+  const transportB = new BatchedTransport(rawB, { flushInterval: 200, maxBatchSize: 30 });
   transportA.connect();
   transportB.connect();
 
   const { plugin: histA } = createHistoryPlugin();
   const { plugin: histB } = createHistoryPlugin();
+  const linkPluginA = createLinkPlugin();
+  const linkPluginB = createLinkPlugin();
 
   // Collect specs for HTML view plugin
   const nodeTypes: NodeTypeSpec[] = [paragraphNodeType, ...headingPlugin.nodeTypes!];
@@ -64,6 +70,7 @@ export function mount(container: HTMLElement): void {
     ...boldPlugin.markTypes!,
     ...italicPlugin.markTypes!,
     ...underlinePlugin.markTypes!,
+    ...linkPluginA.markTypes!,
   ];
   const { plugin: htmlViewA } = createHtmlViewPlugin({ nodeTypes, markTypes });
   const { plugin: htmlViewB } = createHtmlViewPlugin({ nodeTypes, markTypes });
@@ -71,17 +78,19 @@ export function mount(container: HTMLElement): void {
   const toolbarLayout = [
     'bold', 'italic', 'underline',
     '|',
+    'link',
+    '|',
     'heading-1', 'heading-2', 'heading-3',
     '|',
     'html-view',
   ];
 
   editorA = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, htmlViewA, toolbarPlugin, histA],
+    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, linkPluginA, htmlViewA, toolbarPlugin, histA],
     toolbar: toolbarLayout,
   });
   editorB = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, htmlViewB, toolbarPlugin, histB],
+    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, linkPluginB, htmlViewB, toolbarPlugin, histB],
     toolbar: toolbarLayout,
   });
 
