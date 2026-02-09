@@ -95,9 +95,14 @@ describe('Cross-Feature Interactions', () => {
     for (const op of opsB) doc2 = applyOperation(doc2, op);
     for (const op of tA) doc2 = applyOperation(doc2, op);
 
-    // Text should contain the insertion in both
-    expect(getBlockText(doc1, 0)).toContain('!');
-    expect(getBlockText(doc2, 0)).toContain('!');
+    // Both paths must converge to same length; insertion "!" must appear; bold on "Hello" preserved
+    const text1 = getBlockText(doc1, 0);
+    const text2 = getBlockText(doc2, 0);
+    expect(text1).toContain('!');
+    expect(text2).toContain('!');
+    expect(text1.length).toBe(text2.length);
+    expect(getMarksAt(doc1, 0, 0).some((m) => m.type === 'bold')).toBe(true);
+    expect(getMarksAt(doc2, 0, 0).some((m) => m.type === 'bold')).toBe(true);
   });
 
   it('should handle insert_text then undo (history integration)', () => {

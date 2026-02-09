@@ -524,8 +524,9 @@ describe('BatchedTransport + Delta + OT', () => {
     rawA.connect();
     rawB.connect();
 
-    const received: Delta[] = [];
-    rawB.onReceive((d) => received.push(d));
+    const sent: Delta[] = [];
+    const origSend = rawA.send.bind(rawA);
+    rawA.send = (d: Delta) => { sent.push(d); origSend(d); };
 
     // Send 3 separate deltas
     const doc = createDocWith([{ type: 'paragraph', text: 'Hello' }]);
@@ -543,13 +544,16 @@ describe('BatchedTransport + Delta + OT', () => {
     });
 
     // Nothing sent yet (batched)
-    expect(received).toHaveLength(0);
+    expect(sent).toHaveLength(0);
 
     // Flush
     vi.advanceTimersByTime(100);
-    // MemoryTransport uses Promise.resolve() for async delivery
-    // We need to flush microtasks
-    vi.runAllTicks();
+
+    // After flush, inner transport should receive exactly one batched delta with all 3 operations
+    expect(sent).toHaveLength(1);
+    expect(sent[0].operations).toHaveLength(3);
+    const applied = applyDelta(doc, sent[0]);
+    expect(getBlockText(applied, 0)).toBe('Hello World');
   });
 
   it('maxBatchSize triggers immediate flush', () => {

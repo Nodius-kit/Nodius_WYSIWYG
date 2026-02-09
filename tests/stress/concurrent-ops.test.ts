@@ -59,6 +59,7 @@ describe('Concurrent OT Convergence', () => {
     const text = getBlockText(result, 0);
     // All three insertions should be present and total length correct
     expect(text).toContain('A');
+    expect(text).toContain('B');
     expect(text).toContain('C');
     expect(text.length).toBe(7); // 4 (Base) + A + B + C
   });
@@ -110,9 +111,15 @@ describe('Concurrent OT Convergence', () => {
     for (const op of opsB) doc2 = applyOperation(doc2, op);
     for (const op of tA) doc2 = applyOperation(doc2, op);
 
-    // Both should have 3 blocks, and "Second!" text preserved
+    // Both should have 3 blocks: First, New (inserted), Second! (edited)
     expect(doc1.children).toHaveLength(3);
     expect(doc2.children).toHaveLength(3);
+    expect(getBlockText(doc1, 0)).toBe('First');
+    expect(getBlockText(doc1, 1)).toBe('New');
+    expect(getBlockText(doc1, 2)).toBe('Second!');
+    expect(getBlockText(doc2, 0)).toBe('First');
+    expect(getBlockText(doc2, 1)).toBe('New');
+    expect(getBlockText(doc2, 2)).toBe('Second!');
   });
 
   it('should converge with concurrent deletes of different blocks', () => {

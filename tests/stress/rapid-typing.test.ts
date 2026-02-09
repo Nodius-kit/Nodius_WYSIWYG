@@ -106,10 +106,11 @@ describe('Rapid Typing Simulation', () => {
     expect(elapsed).toBeLessThan(2000);
     expect(getBlockText(editor.getState().doc, 0)).toHaveLength(50);
 
-    // Undo should work
+    // Undo should work (at least one insert reverted)
     editor.executeCommand('undo');
     const afterUndo = getBlockText(editor.getState().doc, 0);
     expect(afterUndo.length).toBeLessThan(50);
+    expect(afterUndo.length).toBeGreaterThanOrEqual(0);
 
     editor.destroy();
   });
@@ -135,8 +136,10 @@ describe('Rapid Typing Simulation', () => {
     const elapsed = performance.now() - start;
 
     expect(elapsed).toBeLessThan(1000);
-    // After even number of toggles, bold should be applied (last was add)
-    expect(getBlockText(doc, 0)).toContain('Hello');
+    // Text must be preserved after 100 add_mark/remove_mark cycles (last was remove, so no bold)
+    expect(getBlockText(doc, 0)).toBe('Hello World');
+    // Document structure must remain valid (at least one text node in the block)
+    expect(doc.children[0].children.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should handle rapid block creation', () => {

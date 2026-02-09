@@ -61,6 +61,11 @@ describe('Delta Generation', () => {
     const delta = generateDelta(prev, next, 'client-1');
     const insertOp = delta.operations.find((op) => op.type === 'insert_node');
     expect(insertOp).toBeDefined();
+    expect(insertOp!.path).toEqual([]);
+    expect(insertOp!.offset).toBe(1);
+    const insertedNode = insertOp!.data as ElementNode;
+    expect(insertedNode.type).toBe('paragraph');
+    expect(insertedNode.children[0] && (insertedNode.children[0] as TextNode).text).toBe('Second');
   });
 
   it('should detect deleted block', () => {
@@ -77,6 +82,8 @@ describe('Delta Generation', () => {
     const delta = generateDelta(prev, next, 'client-1');
     const deleteOp = delta.operations.find((op) => op.type === 'delete_node');
     expect(deleteOp).toBeDefined();
+    expect(deleteOp!.path).toEqual([]);
+    expect(deleteOp!.offset).toBe(1); // second block (index 1) was deleted
   });
 
   it('should detect type change', () => {

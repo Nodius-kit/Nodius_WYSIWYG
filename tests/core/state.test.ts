@@ -27,6 +27,10 @@ describe('StateManager', () => {
     it('should create state with empty doc and null selection', () => {
       const state = StateManager.createEmptyState();
       expect(state.doc).toBeDefined();
+      expect(state.doc.kind).toBe('document');
+      expect(state.doc.children).toHaveLength(1);
+      expect(state.doc.children[0].type).toBe('paragraph');
+      expect(getBlockText(state.doc, 0)).toBe('');
       expect(state.selection).toBeNull();
     });
   });
