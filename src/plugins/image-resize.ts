@@ -69,24 +69,20 @@ export function createImageResizePlugin(): PluginDefinition {
       e.stopPropagation();
 
       const startX = e.clientX;
-      const startY = e.clientY;
       const startW = img.offsetWidth;
       const startH = img.offsetHeight;
       const ratio = startW / (startH || 1);
 
+      // Corners: 0=NW, 1=NE, 2=SW, 3=SE
+      // Left-side handles (NW, SW) grow when cursor moves left → invert dx
+      const isLeftHandle = corner === 0 || corner === 2;
+
       function onMove(ev: MouseEvent): void {
         ev.preventDefault();
-        let dx = ev.clientX - startX;
-        let dy = ev.clientY - startY;
-
-        // For left-side handles, invert dx
-        if (corner === 0 || corner === 2) dx = -dx;
-        // For top handles, invert dy
-        if (corner === 0 || corner === 1) dy = -dy;
-
-        // Use whichever delta is larger, maintain ratio
-        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy * ratio;
-        const newW = Math.max(50, startW + delta);
+        // Use horizontal delta only: no dx/dy comparison that causes jumps
+        const rawDx = ev.clientX - startX;
+        const dx = isLeftHandle ? -rawDx : rawDx;
+        const newW = Math.max(50, startW + dx);
         const newH = Math.round(newW / ratio);
 
         img.style.width = newW + 'px';
@@ -100,7 +96,6 @@ export function createImageResizePlugin(): PluginDefinition {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
 
-        // Dispatch update_attrs
         if (!editor || !editableEl) return;
         const blockEl = img.closest('[data-node-id]') ?? img;
         const blockIndex = Array.from(editableEl.children).indexOf(blockEl as Element);
@@ -144,10 +139,19 @@ export function createImageResizePlugin(): PluginDefinition {
 
       document.addEventListener('click', onClick);
 
+      // Clear handles when the active image is removed from the DOM
+      // (e.g. deleted via toolbar — the click event on the detached button won't propagate)
+      const unsubscribe = ctx.editor.on('state:change', () => {
+        if (activeImage && !activeImage.isConnected) {
+          clearHandles();
+        }
+      });
+
       return {
         destroy() {
           clearHandles();
           document.removeEventListener('click', onClick);
+          unsubscribe();
         },
       };
     },

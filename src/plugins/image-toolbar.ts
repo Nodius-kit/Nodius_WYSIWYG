@@ -91,6 +91,7 @@ export function createImageToolbarPlugin(): PluginDefinition {
     toolbarEl = document.createElement('div');
     toolbarEl.className = 'nodius-image-toolbar';
 
+    const icons = ICONS as Record<string, string>;
     const buttons: (ToolbarButton | 'separator')[] = [
       { icon: ICONS.alignLeft, title: 'Align Left', command: 'set-image-align-left',
         isActive: () => block.attrs.align === 'left' },
@@ -99,6 +100,7 @@ export function createImageToolbarPlugin(): PluginDefinition {
       { icon: ICONS.alignRight, title: 'Align Right', command: 'set-image-align-right',
         isActive: () => block.attrs.align === 'right' },
       'separator',
+      { icon: icons['dimensions'] ?? ICONS.image, title: 'Edit Dimensions & Position', command: 'edit-image-dimensions' },
       { icon: ICONS.caption, title: 'Edit Caption', command: 'edit-image-caption' },
       { icon: ICONS.crop, title: 'Crop', command: 'crop-image' },
       'separator',

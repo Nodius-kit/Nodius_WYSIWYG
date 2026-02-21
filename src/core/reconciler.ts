@@ -62,6 +62,13 @@ export class Reconciler {
       if (childEl) el.appendChild(childEl);
     }
 
+    // Empty blocks need a <br> placeholder so the browser gives them height
+    // and allows cursor placement (standard contenteditable technique).
+    if (!el.textContent) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+      el.appendChild(document.createElement('br'));
+    }
+
     return el;
   }
 

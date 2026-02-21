@@ -30,7 +30,11 @@ export class SelectionManager {
     const anchorResult = this.resolveToDOMPosition(selection.anchor);
     const focusResult = this.resolveToDOMPosition(selection.focus);
 
-    if (!anchorResult || !focusResult) return;
+    if (!anchorResult || !focusResult) {
+      // Void block selected (e.g. image) — clear DOM cursor so none is visible
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
 
     const sel = window.getSelection();
     if (!sel) return;
@@ -148,9 +152,18 @@ export class SelectionManager {
       offset += textNode.textContent?.length ?? 0;
     }
 
-    // If target is an element, count all text before it
-    if (targetNode === blockEl || targetNode.contains(blockEl)) {
-      return targetOffset;
+    // Target is at the block element level (e.g. caret before/after a <br>).
+    // Count text-node chars in children before targetOffset, skipping elements
+    // like <br> placeholders so they don't inflate the character offset.
+    if (targetNode === blockEl) {
+      let count = 0;
+      for (let i = 0; i < targetOffset; i++) {
+        const child = blockEl.childNodes[i];
+        if (child.nodeType === Node.TEXT_NODE) {
+          count += (child as Text).textContent?.length ?? 0;
+        }
+      }
+      return offset + count;
     }
 
     return offset;
@@ -163,6 +176,11 @@ export class SelectionManager {
 
     const blockEl = this.editableElement.children[pos.blockIndex] as HTMLElement | undefined;
     if (!blockEl) return null;
+
+    // Void blocks (contenteditable=false) don't support text cursors
+    if (blockEl.getAttribute('contenteditable') === 'false') {
+      return null;
+    }
 
     // Walk text nodes to find the right position
     let remaining = pos.offset;
