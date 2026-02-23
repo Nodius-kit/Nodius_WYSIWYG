@@ -144,7 +144,7 @@ export class Reconciler {
     const el = document.createElement(tag);
 
     let childStartIndex = 0;
-    if (rest.length > 0 && rest[0] !== null && typeof rest[0] === 'object' && !Array.isArray(rest[0]) && rest[0] !== 0) {
+    if (rest.length > 0 && rest[0] !== null && typeof rest[0] === 'object' && !Array.isArray(rest[0]) && (rest[0] as any as number) !== 0) {
       // First item is attributes
       const attrs = rest[0] as Record<string, string>;
       for (const [key, value] of Object.entries(attrs)) {

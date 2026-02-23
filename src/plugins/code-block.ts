@@ -11,7 +11,7 @@ export const codeBlockPlugin: PluginDefinition = {
     attrs: { language: { default: '' } },
     toDOM: (node) => {
       const lang = String(node.attrs.language ?? '');
-      return ['pre', {}, ['code', lang ? { class: `language-${lang}` } : {}]];
+      return ['pre', {}, ['code', lang ? { class: `language-${lang}` } : {}]] as any;
     },
     parseDOM: [
       {

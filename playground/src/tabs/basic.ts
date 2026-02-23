@@ -4,10 +4,19 @@ import {
   boldPlugin,
   italicPlugin,
   underlinePlugin,
+  strikethroughPlugin,
+  subscriptPlugin,
+  superscriptPlugin,
+  highlightPlugin,
   headingPlugin,
   listsPlugin,
+  blockquotePlugin,
+  codeBlockPlugin,
+  horizontalRulePlugin,
+  alignmentPlugin,
   toolbarPlugin,
   createImageBase64Plugin,
+  createImageRemotePlugin,
   createImageResizePlugin,
   createImageCropPlugin,
   createImageToolbarPlugin,
@@ -30,8 +39,10 @@ export function mount(container: HTMLElement): void {
       <p class="shortcuts">
         <strong>Shortcuts:</strong>
         Ctrl+B (Bold) &middot; Ctrl+I (Italic) &middot; Ctrl+U (Underline) &middot;
-        Ctrl+K (Link) &middot; Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo) &middot;
-        Ctrl+Alt+1/2/3 (Headings)
+        Ctrl+Shift+X (Strikethrough) &middot; Ctrl+, (Subscript) &middot; Ctrl+. (Superscript) &middot;
+        Ctrl+Shift+H (Highlight) &middot; Ctrl+K (Link) &middot;
+        Ctrl+Alt+1/2/3 (Headings) &middot; Ctrl+Shift+B (Blockquote) &middot; Ctrl+Shift+C (Code Block) &middot;
+        Ctrl+Shift+L/E/R/J (Align) &middot; Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo)
       </p>
     </div>
     <div class="panel">
@@ -43,16 +54,32 @@ export function mount(container: HTMLElement): void {
   const { plugin: historyPlugin } = createHistoryPlugin();
   const linkPlugin = createLinkPlugin();
 
+  // Fake upload function for image-remote demo (converts to data URL)
+  const imageRemotePlugin = createImageRemotePlugin({
+    uploadFn: (file: File) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    }),
+  });
+
   // Collect specs for HTML view plugin
   const nodeTypes: NodeTypeSpec[] = [
     paragraphNodeType,
     ...headingPlugin.nodeTypes!,
     ...listsPlugin.nodeTypes!,
+    ...blockquotePlugin.nodeTypes!,
+    ...codeBlockPlugin.nodeTypes!,
+    ...horizontalRulePlugin.nodeTypes!,
   ];
   const markTypes: MarkTypeSpec[] = [
     ...boldPlugin.markTypes!,
     ...italicPlugin.markTypes!,
     ...underlinePlugin.markTypes!,
+    ...strikethroughPlugin.markTypes!,
+    ...subscriptPlugin.markTypes!,
+    ...superscriptPlugin.markTypes!,
+    ...highlightPlugin.markTypes!,
     ...linkPlugin.markTypes!,
   ];
   const { plugin: htmlViewPlugin } = createHtmlViewPlugin({ nodeTypes, markTypes });
@@ -62,10 +89,19 @@ export function mount(container: HTMLElement): void {
       boldPlugin,
       italicPlugin,
       underlinePlugin,
+      strikethroughPlugin,
+      subscriptPlugin,
+      superscriptPlugin,
+      highlightPlugin,
       headingPlugin,
       listsPlugin,
+      blockquotePlugin,
+      codeBlockPlugin,
+      horizontalRulePlugin,
+      alignmentPlugin,
       linkPlugin,
       createImageBase64Plugin(),
+      imageRemotePlugin,
       createImageResizePlugin(),
       createImageCropPlugin(),
       createImageToolbarPlugin(),
@@ -74,15 +110,21 @@ export function mount(container: HTMLElement): void {
       historyPlugin,
     ],
     toolbar: [
-      'bold', 'italic', 'underline',
+      'bold', 'italic', 'underline', 'strikethrough',
+      '|',
+      'subscript', 'superscript', 'highlight',
       '|',
       'link',
       '|',
       'heading-1', 'heading-2', 'heading-3',
       '|',
+      'blockquote', 'code-block', 'horizontal-rule',
+      '|',
       'ordered-list', 'unordered-list',
       '|',
-      'image',
+      'align-left', 'align-center', 'align-right', 'align-justify',
+      '|',
+      'image', 'image-upload',
       '|',
       'html-view',
     ],

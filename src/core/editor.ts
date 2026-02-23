@@ -440,6 +440,42 @@ export class CoreEditor implements EditorInterface {
     return { childIndex: 0, localOffset: 0 };
   }
 
+  // ─── Range Deletion Helper ──────────────────────────────
+
+  private createDeleteRangeOps(blockIndex: number, start: number, end: number): Operation[] {
+    const block = this.getDoc().children[blockIndex];
+    if (!block) return [];
+
+    const ops: Operation[] = [];
+    let charPos = 0;
+
+    for (let i = 0; i < block.children.length; i++) {
+      const child = block.children[i];
+      if (child.kind !== 'text') continue;
+
+      const nodeStart = charPos;
+      const nodeEnd = charPos + child.text.length;
+      charPos = nodeEnd;
+
+      if (nodeEnd <= start || nodeStart >= end) continue;
+
+      const delStart = Math.max(start, nodeStart) - nodeStart;
+      const delEnd = Math.min(end, nodeEnd) - nodeStart;
+      const delLength = delEnd - delStart;
+
+      if (delLength > 0) {
+        ops.push({
+          type: 'delete_text',
+          path: [blockIndex, i],
+          offset: delStart,
+          length: delLength,
+        });
+      }
+    }
+
+    return ops;
+  }
+
   // ─── Input Helpers ─────────────────────────────────────
 
   private handleTextInsert(selection: EditorSelection, text: string): void {
@@ -450,14 +486,11 @@ export class CoreEditor implements EditorInterface {
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
-      const delPos = this.resolveTextPosition(anchor.blockIndex, start);
-      ops.push({
-        type: 'delete_text',
-        path: [anchor.blockIndex, delPos.childIndex],
-        offset: delPos.localOffset,
-        length: end - start,
-      });
-      // Insert at the start position
+
+      // Generate per-child delete ops (handles multi-node selections)
+      ops.push(...this.createDeleteRangeOps(anchor.blockIndex, start, end));
+
+      // Insert at the start position (childIndex is stable after delete_text ops)
       const insPos = this.resolveTextPosition(anchor.blockIndex, start);
       ops.push({
         type: 'insert_text',
@@ -564,18 +597,12 @@ export class CoreEditor implements EditorInterface {
   private handleBackspace(selection: EditorSelection): void {
     const { anchor, focus } = selection;
 
-    // If there's a selection, delete the range
+    // If there's a selection, delete the range (may span multiple text nodes)
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
-      const pos = this.resolveTextPosition(anchor.blockIndex, start);
       this.dispatch({
-        operations: [{
-          type: 'delete_text',
-          path: [anchor.blockIndex, pos.childIndex],
-          offset: pos.localOffset,
-          length: end - start,
-        }],
+        operations: this.createDeleteRangeOps(anchor.blockIndex, start, end),
         selection: {
           anchor: { ...anchor, offset: start },
           focus: { ...anchor, offset: start },
@@ -636,18 +663,12 @@ export class CoreEditor implements EditorInterface {
     const block = doc.children[anchor.blockIndex];
     if (!block) return;
 
-    // Selection range delete
+    // Selection range delete (may span multiple text nodes)
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
-      const pos = this.resolveTextPosition(anchor.blockIndex, start);
       this.dispatch({
-        operations: [{
-          type: 'delete_text',
-          path: [anchor.blockIndex, pos.childIndex],
-          offset: pos.localOffset,
-          length: end - start,
-        }],
+        operations: this.createDeleteRangeOps(anchor.blockIndex, start, end),
         selection: {
           anchor: { ...anchor, offset: start },
           focus: { ...anchor, offset: start },

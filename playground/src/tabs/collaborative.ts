@@ -4,8 +4,21 @@ import {
   boldPlugin,
   italicPlugin,
   underlinePlugin,
+  strikethroughPlugin,
+  subscriptPlugin,
+  superscriptPlugin,
+  highlightPlugin,
   headingPlugin,
+  listsPlugin,
+  blockquotePlugin,
+  codeBlockPlugin,
+  horizontalRulePlugin,
+  alignmentPlugin,
   toolbarPlugin,
+  createImageBase64Plugin,
+  createImageResizePlugin,
+  createImageCropPlugin,
+  createImageToolbarPlugin,
   createHtmlViewPlugin,
   createLinkPlugin,
   paragraphNodeType,
@@ -65,32 +78,51 @@ export function mount(container: HTMLElement): void {
   const linkPluginB = createLinkPlugin();
 
   // Collect specs for HTML view plugin
-  const nodeTypes: NodeTypeSpec[] = [paragraphNodeType, ...headingPlugin.nodeTypes!];
+  const nodeTypes: NodeTypeSpec[] = [
+    paragraphNodeType, ...headingPlugin.nodeTypes!, ...listsPlugin.nodeTypes!,
+    ...blockquotePlugin.nodeTypes!, ...codeBlockPlugin.nodeTypes!, ...horizontalRulePlugin.nodeTypes!,
+  ];
   const markTypes: MarkTypeSpec[] = [
-    ...boldPlugin.markTypes!,
-    ...italicPlugin.markTypes!,
-    ...underlinePlugin.markTypes!,
-    ...linkPluginA.markTypes!,
+    ...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!,
+    ...strikethroughPlugin.markTypes!, ...subscriptPlugin.markTypes!, ...superscriptPlugin.markTypes!,
+    ...highlightPlugin.markTypes!, ...linkPluginA.markTypes!,
   ];
   const { plugin: htmlViewA } = createHtmlViewPlugin({ nodeTypes, markTypes });
   const { plugin: htmlViewB } = createHtmlViewPlugin({ nodeTypes, markTypes });
 
+  const allPlugins = [
+    boldPlugin, italicPlugin, underlinePlugin,
+    strikethroughPlugin, subscriptPlugin, superscriptPlugin, highlightPlugin,
+    headingPlugin, listsPlugin,
+    blockquotePlugin, codeBlockPlugin, horizontalRulePlugin, alignmentPlugin,
+  ];
+
   const toolbarLayout = [
-    'bold', 'italic', 'underline',
+    'bold', 'italic', 'underline', 'strikethrough',
+    '|',
+    'subscript', 'superscript', 'highlight',
     '|',
     'link',
     '|',
     'heading-1', 'heading-2', 'heading-3',
     '|',
+    'blockquote', 'code-block', 'horizontal-rule',
+    '|',
+    'ordered-list', 'unordered-list',
+    '|',
+    'align-left', 'align-center', 'align-right', 'align-justify',
+    '|',
+    'image',
+    '|',
     'html-view',
   ];
 
   editorA = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, linkPluginA, htmlViewA, toolbarPlugin, histA],
+    plugins: [...allPlugins, linkPluginA, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), htmlViewA, toolbarPlugin, histA],
     toolbar: toolbarLayout,
   });
   editorB = createEditor({
-    plugins: [boldPlugin, italicPlugin, underlinePlugin, headingPlugin, linkPluginB, htmlViewB, toolbarPlugin, histB],
+    plugins: [...allPlugins, linkPluginB, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), htmlViewB, toolbarPlugin, histB],
     toolbar: toolbarLayout,
   });
 

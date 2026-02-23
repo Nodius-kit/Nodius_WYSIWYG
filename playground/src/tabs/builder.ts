@@ -4,10 +4,19 @@ import {
   boldPlugin,
   italicPlugin,
   underlinePlugin,
+  strikethroughPlugin,
+  subscriptPlugin,
+  superscriptPlugin,
+  highlightPlugin,
   headingPlugin,
   listsPlugin,
+  blockquotePlugin,
+  codeBlockPlugin,
+  horizontalRulePlugin,
+  alignmentPlugin,
   toolbarPlugin,
   createImageBase64Plugin,
+  createImageRemotePlugin,
   createImageResizePlugin,
   createImageCropPlugin,
   createImageToolbarPlugin,
@@ -62,9 +71,60 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     createPlugin: () => listsPlugin,
   },
   {
+    id: 'strikethrough', label: 'Strikethrough', importName: 'strikethroughPlugin',
+    isFactory: false, toolbarItems: ['strikethrough'],
+    createPlugin: () => strikethroughPlugin,
+  },
+  {
+    id: 'subscript', label: 'Subscript', importName: 'subscriptPlugin',
+    isFactory: false, toolbarItems: ['subscript'],
+    createPlugin: () => subscriptPlugin,
+  },
+  {
+    id: 'superscript', label: 'Superscript', importName: 'superscriptPlugin',
+    isFactory: false, toolbarItems: ['superscript'],
+    createPlugin: () => superscriptPlugin,
+  },
+  {
+    id: 'highlight', label: 'Highlight', importName: 'highlightPlugin',
+    isFactory: false, toolbarItems: ['highlight'],
+    createPlugin: () => highlightPlugin,
+  },
+  {
+    id: 'blockquote', label: 'Blockquote', importName: 'blockquotePlugin',
+    isFactory: false, toolbarItems: ['blockquote'],
+    createPlugin: () => blockquotePlugin,
+  },
+  {
+    id: 'code-block', label: 'Code Block', importName: 'codeBlockPlugin',
+    isFactory: false, toolbarItems: ['code-block'],
+    createPlugin: () => codeBlockPlugin,
+  },
+  {
+    id: 'horizontal-rule', label: 'Horizontal Rule', importName: 'horizontalRulePlugin',
+    isFactory: false, toolbarItems: ['horizontal-rule'],
+    createPlugin: () => horizontalRulePlugin,
+  },
+  {
+    id: 'alignment', label: 'Alignment', importName: 'alignmentPlugin',
+    isFactory: false, toolbarItems: ['align-left', 'align-center', 'align-right', 'align-justify'],
+    createPlugin: () => alignmentPlugin,
+  },
+  {
     id: 'image', label: 'Image (Base64)', importName: 'createImageBase64Plugin',
     isFactory: true, factoryCall: 'createImageBase64Plugin()', toolbarItems: ['image'],
     createPlugin: () => createImageBase64Plugin(),
+  },
+  {
+    id: 'image-remote', label: 'Image (Upload)', importName: 'createImageRemotePlugin',
+    isFactory: true, factoryCall: 'createImageRemotePlugin({ uploadFn })', toolbarItems: ['image-upload'],
+    createPlugin: () => createImageRemotePlugin({
+      uploadFn: (file: File) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      }),
+    }),
   },
   {
     id: 'image-resize', label: 'Image Resize', importName: 'createImageResizePlugin',
@@ -91,8 +151,15 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     isFactory: true, factoryCall: 'createHtmlViewPlugin({ nodeTypes, markTypes })',
     destructure: '{ plugin: htmlViewPlugin }', toolbarItems: ['html-view'],
     createPlugin: () => {
-      const nodeTypes: NodeTypeSpec[] = [paragraphNodeType, ...headingPlugin.nodeTypes!, ...listsPlugin.nodeTypes!];
-      const markTypes: MarkTypeSpec[] = [...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!];
+      const nodeTypes: NodeTypeSpec[] = [
+        paragraphNodeType, ...headingPlugin.nodeTypes!, ...listsPlugin.nodeTypes!,
+        ...blockquotePlugin.nodeTypes!, ...codeBlockPlugin.nodeTypes!, ...horizontalRulePlugin.nodeTypes!,
+      ];
+      const markTypes: MarkTypeSpec[] = [
+        ...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!,
+        ...strikethroughPlugin.markTypes!, ...subscriptPlugin.markTypes!, ...superscriptPlugin.markTypes!,
+        ...highlightPlugin.markTypes!,
+      ];
       return createHtmlViewPlugin({ nodeTypes, markTypes }).plugin;
     },
   },
@@ -119,15 +186,21 @@ function getDefaults() {
   return {
     enabled: new Set(PLUGIN_REGISTRY.map((p) => p.id)),
     toolbar: [
-      'bold', 'italic', 'underline',
+      'bold', 'italic', 'underline', 'strikethrough',
+      '|',
+      'subscript', 'superscript', 'highlight',
       '|',
       'link',
       '|',
       'heading-1', 'heading-2', 'heading-3',
       '|',
+      'blockquote', 'code-block', 'horizontal-rule',
+      '|',
       'ordered-list', 'unordered-list',
       '|',
-      'image',
+      'align-left', 'align-center', 'align-right', 'align-justify',
+      '|',
+      'image', 'image-upload',
     ],
   };
 }
