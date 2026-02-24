@@ -7,7 +7,7 @@ import {
   strikethroughPlugin,
   subscriptPlugin,
   superscriptPlugin,
-  highlightPlugin,
+  createHighlightPlugin,
   headingPlugin,
   listsPlugin,
   blockquotePlugin,
@@ -22,6 +22,9 @@ import {
   createImageToolbarPlugin,
   createHtmlViewPlugin,
   createLinkPlugin,
+  createTextColorPlugin,
+  createFloatingToolbarPlugin,
+  createPdfExportPlugin,
   paragraphNodeType,
   type CoreEditor,
   type NodeTypeSpec,
@@ -44,6 +47,11 @@ export function mount(container: HTMLElement): void {
         Ctrl+Alt+1/2/3 (Headings) &middot; Ctrl+Shift+B (Blockquote) &middot; Ctrl+Shift+C (Code Block) &middot;
         Ctrl+Shift+L/E/R/J (Align) &middot; Ctrl+Z (Undo) &middot; Ctrl+Shift+Z (Redo)
       </p>
+      <p class="shortcuts">
+        <strong>New:</strong>
+        Text Color (dropdown) &middot; Highlight Color (dropdown) &middot;
+        Floating Toolbar (select text) &middot; Export PDF
+      </p>
     </div>
     <div class="panel">
       <h2>Document State (JSON)</h2>
@@ -53,6 +61,10 @@ export function mount(container: HTMLElement): void {
 
   const { plugin: historyPlugin } = createHistoryPlugin();
   const linkPlugin = createLinkPlugin();
+  const highlightPlugin = createHighlightPlugin();
+  const textColorPlugin = createTextColorPlugin();
+  const floatingToolbarPlugin = createFloatingToolbarPlugin();
+  const pdfExportPlugin = createPdfExportPlugin();
 
   // Fake upload function for image-remote demo (converts to data URL)
   const imageRemotePlugin = createImageRemotePlugin({
@@ -80,6 +92,7 @@ export function mount(container: HTMLElement): void {
     ...subscriptPlugin.markTypes!,
     ...superscriptPlugin.markTypes!,
     ...highlightPlugin.markTypes!,
+    ...textColorPlugin.markTypes!,
     ...linkPlugin.markTypes!,
   ];
   const { plugin: htmlViewPlugin } = createHtmlViewPlugin({ nodeTypes, markTypes });
@@ -93,6 +106,7 @@ export function mount(container: HTMLElement): void {
       subscriptPlugin,
       superscriptPlugin,
       highlightPlugin,
+      textColorPlugin,
       headingPlugin,
       listsPlugin,
       blockquotePlugin,
@@ -106,13 +120,15 @@ export function mount(container: HTMLElement): void {
       createImageCropPlugin(),
       createImageToolbarPlugin(),
       htmlViewPlugin,
+      pdfExportPlugin,
+      floatingToolbarPlugin,
       toolbarPlugin,
       historyPlugin,
     ],
     toolbar: [
       'bold', 'italic', 'underline', 'strikethrough',
       '|',
-      'subscript', 'superscript', 'highlight',
+      'subscript', 'superscript', 'highlight', 'text-color',
       '|',
       'link',
       '|',
@@ -126,7 +142,7 @@ export function mount(container: HTMLElement): void {
       '|',
       'image', 'image-upload',
       '|',
-      'html-view',
+      'pdf-export', 'html-view',
     ],
   });
 

@@ -50,6 +50,8 @@ const DEFAULT_CSS = `
   min-height: 100px;
   outline: none;
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 .nodius-editable:empty::before {
   content: attr(data-placeholder);
@@ -81,6 +83,7 @@ export const toolbarPlugin: PluginDefinition = {
 
     let toolbarEl: HTMLElement | null = null;
     let unsubState: (() => void) | null = null;
+    let unsubSelection: (() => void) | null = null;
     const buttons: Map<string, HTMLButtonElement> = new Map();
     let items: ToolbarItemSpec[] = [];
 
@@ -130,18 +133,30 @@ export const toolbarPlugin: PluginDefinition = {
         }
       }
 
-      unsubState = ctx.editor.on('state:change', ({ nextState }) => {
+      function updateButtons(state: ContentState) {
         for (const item of items) {
           const btn = buttons.get(item.name);
           if (!btn) continue;
           if (item.isActive) {
-            btn.classList.toggle('active', item.isActive(nextState));
+            btn.classList.toggle('active', item.isActive(state));
           }
           if (item.isDisabled) {
-            btn.disabled = item.isDisabled(nextState);
+            btn.disabled = item.isDisabled(state);
           }
         }
-      });
+      }
+
+      unsubState = ctx.editor.on('state:change', ({ nextState }) => updateButtons(nextState));
+      unsubSelection = ctx.editor.on('selection:change', () => updateButtons(ctx.editor.getState()));
+    }
+
+    let activeDropdown: { el: HTMLElement; destroy: () => void } | null = null;
+
+    function closeDropdown() {
+      if (activeDropdown) {
+        activeDropdown.destroy();
+        activeDropdown = null;
+      }
     }
 
     function appendButton(parent: HTMLElement, item: ToolbarItemSpec) {
@@ -152,14 +167,35 @@ export const toolbarPlugin: PluginDefinition = {
       btn.type = 'button';
       btn.setAttribute('data-command', item.command);
 
-      btn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        if (item.commandArgs) {
-          ctx.editor.executeCommand(item.command, item.commandArgs);
-        } else {
-          ctx.editor.executeCommand(item.command);
-        }
-      });
+      if (item.dropdown) {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (activeDropdown) {
+            closeDropdown();
+            return;
+          }
+          const state = ctx.editor.getState();
+          activeDropdown = item.dropdown!(state, btn, (name, args) => ctx.editor.executeCommand(name, args));
+          parent.appendChild(activeDropdown.el);
+
+          const onClickOutside = (ev: MouseEvent) => {
+            if (activeDropdown && !activeDropdown.el.contains(ev.target as Node) && ev.target !== btn) {
+              closeDropdown();
+              document.removeEventListener('mousedown', onClickOutside, true);
+            }
+          };
+          setTimeout(() => document.addEventListener('mousedown', onClickOutside, true), 0);
+        });
+      } else {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (item.commandArgs) {
+            ctx.editor.executeCommand(item.command, item.commandArgs);
+          } else {
+            ctx.editor.executeCommand(item.command);
+          }
+        });
+      }
 
       parent.appendChild(btn);
       buttons.set(item.name, btn);
@@ -176,7 +212,9 @@ export const toolbarPlugin: PluginDefinition = {
     return {
       destroy() {
         unsubMount();
+        closeDropdown();
         if (unsubState) unsubState();
+        if (unsubSelection) unsubSelection();
         if (toolbarEl) toolbarEl.remove();
         toolbarEl = null;
       },

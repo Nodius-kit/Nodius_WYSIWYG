@@ -72,7 +72,7 @@ describe('Strikethrough Plugin', () => {
     expect(result).toBe(false);
   });
 
-  it('should return false with collapsed selection', () => {
+  it('should store strikethrough mark with collapsed selection (stored marks)', () => {
     const editor = createEditor({ plugins: [strikethroughPlugin] });
     editor.mount(container);
     editor.dispatch({
@@ -85,7 +85,8 @@ describe('Strikethrough Plugin', () => {
       timestamp: Date.now(),
     });
     const result = editor.executeCommand('toggle-strikethrough');
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(editor.getState().storedMarks).toEqual([{ type: 'strikethrough' }]);
     editor.destroy();
   });
 

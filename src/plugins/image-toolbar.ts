@@ -183,14 +183,12 @@ export function createImageToolbarPlugin(): PluginDefinition {
         return true;
       });
 
-      const editable = ctx.editor.getEditableElement();
-      if (editable) {
+      function attachClickListener(editable: HTMLElement) {
         editable.addEventListener('click', (e: Event) => {
           const target = e.target as HTMLElement;
           if (target.tagName === 'IMG' && target.closest('[data-node-id]')) {
             const blockEl = target.closest('[data-node-id]') as HTMLElement;
             if (blockEl?.parentElement === editable) {
-              // Set selection to the image block
               const blocks = Array.from(editable.children);
               const blockIndex = blocks.indexOf(blockEl);
               if (blockIndex >= 0) {
@@ -207,6 +205,17 @@ export function createImageToolbarPlugin(): PluginDefinition {
               }
             }
           }
+        });
+      }
+
+      // Defer click listener to mount event (plugins init before mount, so getEditableElement() returns null)
+      const editable = ctx.editor.getEditableElement();
+      if (editable) {
+        attachClickListener(editable);
+      } else {
+        ctx.editor.on('mount', () => {
+          const el = ctx.editor.getEditableElement();
+          if (el) attachClickListener(el);
         });
       }
     },

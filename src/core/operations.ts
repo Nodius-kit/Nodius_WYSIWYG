@@ -267,6 +267,8 @@ function normalizeBlock(block: ElementNode): ElementNode {
   const merged: EditorNode[] = [];
   for (const child of block.children) {
     if (child.kind !== 'text') { merged.push(child); continue; }
+    // Skip empty text nodes (they'll be cleaned up)
+    if (child.text === '') continue;
     const prev = merged[merged.length - 1];
     if (prev?.kind === 'text' && marksArrayEqual(prev.marks, child.marks)) {
       merged[merged.length - 1] = { ...prev, text: prev.text + child.text };
@@ -274,7 +276,12 @@ function normalizeBlock(block: ElementNode): ElementNode {
       merged.push(child);
     }
   }
-  if (merged.length === block.children.length) return block;
+  // Ensure at least one text node per block
+  if (merged.length === 0) {
+    merged.push({ id: generateId(), kind: 'text', text: '', marks: [] });
+  }
+  if (merged.length === block.children.length &&
+      merged.every((c, i) => c === block.children[i])) return block;
   return { ...block, children: merged };
 }
 
@@ -536,6 +543,18 @@ export function applyTransaction(state: ContentState, tr: Transaction): ContentS
   let doc = state.doc;
   for (const op of tr.operations) {
     doc = applyOperation(doc, op);
+  }
+
+  // Normalize all blocks (remove empty text nodes, merge adjacent same-mark nodes)
+  let normalized = false;
+  const newChildren = doc.children.map((block) => {
+    if (block.kind !== 'element') return block;
+    const norm = normalizeBlock(block);
+    if (norm !== block) normalized = true;
+    return norm;
+  });
+  if (normalized) {
+    doc = { ...doc, children: newChildren };
   }
 
   // Bump version

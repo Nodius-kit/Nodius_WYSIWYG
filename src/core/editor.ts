@@ -9,6 +9,7 @@ import type {
   Operation,
   PluginContext,
   TextNode,
+  Mark,
 } from './types';
 import { generateId } from './types';
 import { StateManager } from './state';
@@ -401,6 +402,19 @@ export class CoreEditor implements EditorInterface {
       }
     }
 
+    // Clear stored marks only when cursor actually moves position
+    const currentSel = this.stateManager.getState().selection;
+    if (this.stateManager.getState().storedMarks && currentSel) {
+      const posChanged =
+        selection.anchor.blockIndex !== currentSel.anchor.blockIndex ||
+        selection.anchor.offset !== currentSel.anchor.offset ||
+        selection.focus.blockIndex !== currentSel.focus.blockIndex ||
+        selection.focus.offset !== currentSel.focus.offset;
+      if (posChanged) {
+        this.stateManager.setStoredMarks(null);
+      }
+    }
+
     this.stateManager.setSelection(selection);
     this.eventBus.emit('selection:change', { selection });
   }
@@ -476,13 +490,94 @@ export class CoreEditor implements EditorInterface {
     return ops;
   }
 
+  // ─── Cross-Block Deletion ─────────────────────────────
+
+  private getBlockTextLength(blockIndex: number): number {
+    const block = this.getDoc().children[blockIndex];
+    if (!block) return 0;
+    let len = 0;
+    for (const child of block.children) {
+      if (child.kind === 'text') len += child.text.length;
+    }
+    return len;
+  }
+
+  private createCrossBlockDeleteOps(selection: EditorSelection): { ops: Operation[]; startBlockIdx: number; startOffset: number } {
+    const { anchor, focus } = selection;
+    const startBlockIdx = Math.min(anchor.blockIndex, focus.blockIndex);
+    const endBlockIdx = Math.max(anchor.blockIndex, focus.blockIndex);
+    const startOffset = anchor.blockIndex < focus.blockIndex ? anchor.offset : focus.offset;
+    const endOffset = anchor.blockIndex < focus.blockIndex ? focus.offset : anchor.offset;
+
+    const ops: Operation[] = [];
+
+    // 1. Delete text in start block from startOffset to end
+    const startBlockLen = this.getBlockTextLength(startBlockIdx);
+    if (startOffset < startBlockLen) {
+      ops.push(...this.createDeleteRangeOps(startBlockIdx, startOffset, startBlockLen));
+    }
+
+    // 2. Delete text in end block from 0 to endOffset
+    if (endOffset > 0) {
+      ops.push(...this.createDeleteRangeOps(endBlockIdx, 0, endOffset));
+    }
+
+    // 3. Delete intermediate blocks (reverse order to keep indices stable)
+    for (let i = endBlockIdx - 1; i > startBlockIdx; i--) {
+      ops.push({ type: 'delete_node', path: [], offset: i });
+    }
+
+    // 4. Merge end block (now at startBlockIdx + 1) into start block
+    ops.push({ type: 'merge_nodes', path: [], offset: startBlockIdx + 1 });
+
+    return { ops, startBlockIdx, startOffset };
+  }
+
   // ─── Input Helpers ─────────────────────────────────────
 
   private handleTextInsert(selection: EditorSelection, text: string): void {
     const ops: Operation[] = [];
     const { anchor, focus } = selection;
+    const storedMarks = this.stateManager.getState().storedMarks;
 
-    // If there's a selection range, delete it first
+    // Cross-block selection: delete range then insert
+    if (anchor.blockIndex !== focus.blockIndex) {
+      const { ops: deleteOps, startBlockIdx, startOffset } = this.createCrossBlockDeleteOps(selection);
+      ops.push(...deleteOps);
+
+      // Insert text at the merge point (text before startOffset is unchanged, so resolveTextPosition is valid)
+      const insPos = this.resolveTextPosition(startBlockIdx, startOffset);
+      ops.push({
+        type: 'insert_text',
+        path: [startBlockIdx, insPos.childIndex],
+        offset: insPos.localOffset,
+        data: text,
+      });
+
+      // Handle stored marks
+      if (storedMarks !== null && storedMarks !== undefined) {
+        const inheritedMarks = this.getInheritedMarks(startBlockIdx, startOffset);
+        for (const inherited of inheritedMarks) {
+          if (!storedMarks.some((m) => m.type === inherited.type)) {
+            ops.push({ type: 'remove_mark', path: [startBlockIdx], offset: startOffset, length: text.length, mark: { type: inherited.type } });
+          }
+        }
+        for (const mark of storedMarks) {
+          if (!inheritedMarks.some((m) => m.type === mark.type)) {
+            ops.push({ type: 'add_mark', path: [startBlockIdx], offset: startOffset, length: text.length, mark });
+          }
+        }
+      }
+
+      const newSel: EditorSelection = {
+        anchor: { blockIndex: startBlockIdx, path: [], offset: startOffset + text.length },
+        focus: { blockIndex: startBlockIdx, path: [], offset: startOffset + text.length },
+      };
+      this.dispatch({ operations: ops, selection: newSel, storedMarks: storedMarks !== null && storedMarks !== undefined ? null : undefined, origin: 'input', timestamp: Date.now() });
+      return;
+    }
+
+    // Same-block range selection: delete it first
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
       const end = Math.max(anchor.offset, focus.offset);
@@ -499,11 +594,28 @@ export class CoreEditor implements EditorInterface {
         data: text,
       });
 
+      // When storedMarks is set (even empty []), enforce it on inserted text
+      if (storedMarks !== null && storedMarks !== undefined) {
+        // Remove inherited marks not in storedMarks
+        const inheritedMarks = this.getInheritedMarks(anchor.blockIndex, start);
+        for (const inherited of inheritedMarks) {
+          if (!storedMarks.some((m) => m.type === inherited.type)) {
+            ops.push({ type: 'remove_mark', path: [anchor.blockIndex], offset: start, length: text.length, mark: { type: inherited.type } });
+          }
+        }
+        // Add storedMarks not already inherited
+        for (const mark of storedMarks) {
+          if (!inheritedMarks.some((m) => m.type === mark.type)) {
+            ops.push({ type: 'add_mark', path: [anchor.blockIndex], offset: start, length: text.length, mark });
+          }
+        }
+      }
+
       const newSel: EditorSelection = {
         anchor: { blockIndex: anchor.blockIndex, path: [], offset: start + text.length },
         focus: { blockIndex: anchor.blockIndex, path: [], offset: start + text.length },
       };
-      this.dispatch({ operations: ops, selection: newSel, origin: 'input', timestamp: Date.now() });
+      this.dispatch({ operations: ops, selection: newSel, storedMarks: storedMarks !== null && storedMarks !== undefined ? null : undefined, origin: 'input', timestamp: Date.now() });
     } else {
       const pos = this.resolveTextPosition(anchor.blockIndex, anchor.offset);
       ops.push({
@@ -512,12 +624,46 @@ export class CoreEditor implements EditorInterface {
         offset: pos.localOffset,
         data: text,
       });
+
+      // When storedMarks is set (even empty []), enforce it on inserted text
+      if (storedMarks !== null && storedMarks !== undefined) {
+        // Remove inherited marks not in storedMarks
+        const inheritedMarks = this.getInheritedMarks(anchor.blockIndex, anchor.offset);
+        for (const inherited of inheritedMarks) {
+          if (!storedMarks.some((m) => m.type === inherited.type)) {
+            ops.push({ type: 'remove_mark', path: [anchor.blockIndex], offset: anchor.offset, length: text.length, mark: { type: inherited.type } });
+          }
+        }
+        // Add storedMarks not already inherited
+        for (const mark of storedMarks) {
+          if (!inheritedMarks.some((m) => m.type === mark.type)) {
+            ops.push({ type: 'add_mark', path: [anchor.blockIndex], offset: anchor.offset, length: text.length, mark });
+          }
+        }
+      }
+
       const newSel: EditorSelection = {
         anchor: { ...anchor, offset: anchor.offset + text.length },
         focus: { ...anchor, offset: anchor.offset + text.length },
       };
-      this.dispatch({ operations: ops, selection: newSel, origin: 'input', timestamp: Date.now() });
+      this.dispatch({ operations: ops, selection: newSel, storedMarks: storedMarks !== null && storedMarks !== undefined ? null : undefined, origin: 'input', timestamp: Date.now() });
     }
+  }
+
+  private getInheritedMarks(blockIndex: number, charOffset: number): readonly Mark[] {
+    const block = this.getDoc().children[blockIndex];
+    if (!block) return [];
+    let pos = 0;
+    for (const child of block.children) {
+      if (child.kind === 'text') {
+        const end = pos + child.text.length;
+        if (charOffset >= pos && charOffset <= end) {
+          return child.marks;
+        }
+        pos = end;
+      }
+    }
+    return [];
   }
 
   private handleEnter(selection: EditorSelection): void {
@@ -597,6 +743,47 @@ export class CoreEditor implements EditorInterface {
   private handleBackspace(selection: EditorSelection): void {
     const { anchor, focus } = selection;
 
+    // Cross-block selection: delete entire range
+    if (anchor.blockIndex !== focus.blockIndex) {
+      const { ops, startBlockIdx, startOffset } = this.createCrossBlockDeleteOps(selection);
+      this.dispatch({
+        operations: ops,
+        selection: {
+          anchor: { blockIndex: startBlockIdx, path: [], offset: startOffset },
+          focus: { blockIndex: startBlockIdx, path: [], offset: startOffset },
+        },
+        origin: 'input',
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    // Void block deletion (image, HR, etc.)
+    const voidBlock = this.getDoc().children[anchor.blockIndex];
+    if (voidBlock) {
+      const voidSpec = this.schema.getNodeType(voidBlock.type);
+      if (voidSpec?.group === 'void') {
+        const ops: Operation[] = [{ type: 'delete_node', path: [], offset: anchor.blockIndex }];
+        const docLen = this.getDoc().children.length;
+        if (docLen === 1) {
+          ops.push({
+            type: 'insert_node', path: [], offset: 0,
+            data: {
+              id: generateId(), kind: 'element' as const, type: 'paragraph', attrs: {},
+              children: [{ id: generateId(), kind: 'text' as const, text: '', marks: [] as const }],
+            },
+          });
+        }
+        const newBlockIndex = docLen === 1 ? 0 : Math.max(0, anchor.blockIndex - 1);
+        this.dispatch({
+          operations: ops,
+          selection: { anchor: { blockIndex: newBlockIndex, path: [], offset: 0 }, focus: { blockIndex: newBlockIndex, path: [], offset: 0 } },
+          origin: 'input', timestamp: Date.now(),
+        });
+        return;
+      }
+    }
+
     // If there's a selection, delete the range (may span multiple text nodes)
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {
       const start = Math.min(anchor.offset, focus.offset);
@@ -659,9 +846,47 @@ export class CoreEditor implements EditorInterface {
 
   private handleDelete(selection: EditorSelection): void {
     const { anchor, focus } = selection;
+
+    // Cross-block selection: delete entire range
+    if (anchor.blockIndex !== focus.blockIndex) {
+      const { ops, startBlockIdx, startOffset } = this.createCrossBlockDeleteOps(selection);
+      this.dispatch({
+        operations: ops,
+        selection: {
+          anchor: { blockIndex: startBlockIdx, path: [], offset: startOffset },
+          focus: { blockIndex: startBlockIdx, path: [], offset: startOffset },
+        },
+        origin: 'input',
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
     const doc = this.getDoc();
     const block = doc.children[anchor.blockIndex];
     if (!block) return;
+
+    // Void block deletion (image, HR, etc.)
+    const delSpec = this.schema.getNodeType(block.type);
+    if (delSpec?.group === 'void') {
+      const ops: Operation[] = [{ type: 'delete_node', path: [], offset: anchor.blockIndex }];
+      if (doc.children.length === 1) {
+        ops.push({
+          type: 'insert_node', path: [], offset: 0,
+          data: {
+            id: generateId(), kind: 'element' as const, type: 'paragraph', attrs: {},
+            children: [{ id: generateId(), kind: 'text' as const, text: '', marks: [] as const }],
+          },
+        });
+      }
+      const newBlockIndex = doc.children.length === 1 ? 0 : Math.min(anchor.blockIndex, doc.children.length - 2);
+      this.dispatch({
+        operations: ops,
+        selection: { anchor: { blockIndex: newBlockIndex, path: [], offset: 0 }, focus: { blockIndex: newBlockIndex, path: [], offset: 0 } },
+        origin: 'input', timestamp: Date.now(),
+      });
+      return;
+    }
 
     // Selection range delete (may span multiple text nodes)
     if (anchor.blockIndex === focus.blockIndex && anchor.offset !== focus.offset) {

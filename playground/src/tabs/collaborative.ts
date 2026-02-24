@@ -7,7 +7,7 @@ import {
   strikethroughPlugin,
   subscriptPlugin,
   superscriptPlugin,
-  highlightPlugin,
+  createHighlightPlugin,
   headingPlugin,
   listsPlugin,
   blockquotePlugin,
@@ -21,6 +21,9 @@ import {
   createImageToolbarPlugin,
   createHtmlViewPlugin,
   createLinkPlugin,
+  createTextColorPlugin,
+  createFloatingToolbarPlugin,
+  createPdfExportPlugin,
   paragraphNodeType,
   MemoryTransport,
   BatchedTransport,
@@ -76,6 +79,10 @@ export function mount(container: HTMLElement): void {
   const { plugin: histB } = createHistoryPlugin();
   const linkPluginA = createLinkPlugin();
   const linkPluginB = createLinkPlugin();
+  const highlightPluginA = createHighlightPlugin();
+  const highlightPluginB = createHighlightPlugin();
+  const textColorPluginA = createTextColorPlugin();
+  const textColorPluginB = createTextColorPlugin();
 
   // Collect specs for HTML view plugin
   const nodeTypes: NodeTypeSpec[] = [
@@ -85,14 +92,14 @@ export function mount(container: HTMLElement): void {
   const markTypes: MarkTypeSpec[] = [
     ...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!,
     ...strikethroughPlugin.markTypes!, ...subscriptPlugin.markTypes!, ...superscriptPlugin.markTypes!,
-    ...highlightPlugin.markTypes!, ...linkPluginA.markTypes!,
+    ...highlightPluginA.markTypes!, ...textColorPluginA.markTypes!, ...linkPluginA.markTypes!,
   ];
   const { plugin: htmlViewA } = createHtmlViewPlugin({ nodeTypes, markTypes });
   const { plugin: htmlViewB } = createHtmlViewPlugin({ nodeTypes, markTypes });
 
-  const allPlugins = [
+  const sharedPlugins = [
     boldPlugin, italicPlugin, underlinePlugin,
-    strikethroughPlugin, subscriptPlugin, superscriptPlugin, highlightPlugin,
+    strikethroughPlugin, subscriptPlugin, superscriptPlugin,
     headingPlugin, listsPlugin,
     blockquotePlugin, codeBlockPlugin, horizontalRulePlugin, alignmentPlugin,
   ];
@@ -100,7 +107,7 @@ export function mount(container: HTMLElement): void {
   const toolbarLayout = [
     'bold', 'italic', 'underline', 'strikethrough',
     '|',
-    'subscript', 'superscript', 'highlight',
+    'subscript', 'superscript', 'highlight', 'text-color',
     '|',
     'link',
     '|',
@@ -114,15 +121,15 @@ export function mount(container: HTMLElement): void {
     '|',
     'image',
     '|',
-    'html-view',
+    'pdf-export', 'html-view',
   ];
 
   editorA = createEditor({
-    plugins: [...allPlugins, linkPluginA, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), htmlViewA, toolbarPlugin, histA],
+    plugins: [...sharedPlugins, highlightPluginA, textColorPluginA, linkPluginA, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), createPdfExportPlugin(), createFloatingToolbarPlugin(), htmlViewA, toolbarPlugin, histA],
     toolbar: toolbarLayout,
   });
   editorB = createEditor({
-    plugins: [...allPlugins, linkPluginB, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), htmlViewB, toolbarPlugin, histB],
+    plugins: [...sharedPlugins, highlightPluginB, textColorPluginB, linkPluginB, createImageBase64Plugin(), createImageResizePlugin(), createImageCropPlugin(), createImageToolbarPlugin(), createPdfExportPlugin(), createFloatingToolbarPlugin(), htmlViewB, toolbarPlugin, histB],
     toolbar: toolbarLayout,
   });
 

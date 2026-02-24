@@ -200,4 +200,80 @@ describe('Alignment Plugin', () => {
     expect(editor.getDoc().children[0].attrs.textAlign).toBe('right');
     editor.destroy();
   });
+
+  it('should render text-align style in DOM when center', () => {
+    const doc = createDocWith([{ type: 'paragraph', text: 'Centered' }]);
+    const editor = createEditor({ plugins: [alignmentPlugin], initialContent: doc });
+    editor.mount(container);
+
+    editor.dispatch({
+      operations: [],
+      selection: {
+        anchor: { blockIndex: 0, path: [], offset: 0 },
+        focus: { blockIndex: 0, path: [], offset: 0 },
+      },
+      origin: 'test',
+      timestamp: Date.now(),
+    });
+
+    editor.executeCommand('align-center');
+
+    const editable = editor.getEditableElement()!;
+    const p = editable.querySelector('p');
+    expect(p).not.toBeNull();
+    expect(p!.style.textAlign).toBe('center');
+    editor.destroy();
+  });
+
+  it('should render text-align style in DOM when right', () => {
+    const doc = createDocWith([{ type: 'paragraph', text: 'Right' }]);
+    const editor = createEditor({ plugins: [alignmentPlugin], initialContent: doc });
+    editor.mount(container);
+
+    editor.dispatch({
+      operations: [],
+      selection: {
+        anchor: { blockIndex: 0, path: [], offset: 0 },
+        focus: { blockIndex: 0, path: [], offset: 0 },
+      },
+      origin: 'test',
+      timestamp: Date.now(),
+    });
+
+    editor.executeCommand('align-right');
+
+    const editable = editor.getEditableElement()!;
+    const p = editable.querySelector('p');
+    expect(p!.style.textAlign).toBe('right');
+    editor.destroy();
+  });
+
+  it('should remove text-align style in DOM when set to left', () => {
+    const doc = createDocWith([{ type: 'paragraph', text: 'Reset', attrs: { textAlign: 'center' } }]);
+    const editor = createEditor({ plugins: [alignmentPlugin], initialContent: doc });
+    editor.mount(container);
+
+    // Verify it starts with center alignment
+    let editable = editor.getEditableElement()!;
+    let p = editable.querySelector('p');
+    expect(p!.style.textAlign).toBe('center');
+
+    editor.dispatch({
+      operations: [],
+      selection: {
+        anchor: { blockIndex: 0, path: [], offset: 0 },
+        focus: { blockIndex: 0, path: [], offset: 0 },
+      },
+      origin: 'test',
+      timestamp: Date.now(),
+    });
+
+    editor.executeCommand('align-left');
+
+    editable = editor.getEditableElement()!;
+    p = editable.querySelector('p');
+    // After reset to left, text-align should be empty or not set
+    expect(p!.style.textAlign).toBe('');
+    editor.destroy();
+  });
 });

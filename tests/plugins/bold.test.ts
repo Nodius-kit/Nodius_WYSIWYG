@@ -76,7 +76,7 @@ describe('Bold Plugin', () => {
     expect(result).toBe(false);
   });
 
-  it('should return false with collapsed selection', () => {
+  it('should store bold mark with collapsed selection (stored marks)', () => {
     const editor = createEditor({ plugins: [boldPlugin] });
     editor.mount(container);
     editor.dispatch({
@@ -89,7 +89,8 @@ describe('Bold Plugin', () => {
       timestamp: Date.now(),
     });
     const result = editor.executeCommand('toggle-bold');
-    expect(result).toBe(false);
+    expect(result).toBe(true);
+    expect(editor.getState().storedMarks).toEqual([{ type: 'bold' }]);
     editor.destroy();
   });
 

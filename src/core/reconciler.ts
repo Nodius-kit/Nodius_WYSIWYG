@@ -48,6 +48,9 @@ export class Reconciler {
     el.setAttribute('data-node-id', node.id);
     el.setAttribute('data-node-type', node.type);
 
+    // Apply block-level style attrs (e.g. textAlign from alignment plugin)
+    this.applyBlockStyles(el, node);
+
     // Check if void block
     if (spec?.group === 'void') {
       el.setAttribute('contenteditable', 'false');
@@ -122,6 +125,13 @@ export class Reconciler {
         return el;
       }
       default: return document.createElement('span');
+    }
+  }
+
+  private applyBlockStyles(el: HTMLElement, node: ElementNode): void {
+    const textAlign = node.attrs.textAlign as string | undefined;
+    if (textAlign && textAlign !== 'left') {
+      el.style.textAlign = textAlign;
     }
   }
 

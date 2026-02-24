@@ -10,6 +10,7 @@ export { Schema, paragraphNodeType } from './core/schema';
 export { Reconciler } from './core/reconciler';
 export { SelectionManager } from './core/selection';
 export { createHistoryPlugin } from './core/history';
+export { selectionHasMark, isMarkActive, getMarksAtPosition, toggleMarkOrStore, toggleMarkExclusiveOrStore } from './core/mark-utils';
 
 // ─── Export / Import ─────────────────────────────────────────
 export { toJSON, toHTML, toMarkdown } from './core/export';
@@ -76,15 +77,24 @@ export { createImageToolbarPlugin } from './plugins/image-toolbar';
 export { strikethroughPlugin } from './plugins/strikethrough';
 export { subscriptPlugin } from './plugins/subscript';
 export { superscriptPlugin } from './plugins/superscript';
-export { highlightPlugin } from './plugins/highlight';
+export { highlightPlugin, createHighlightPlugin } from './plugins/highlight';
+export type { HighlightConfig } from './plugins/highlight';
 export { blockquotePlugin } from './plugins/blockquote';
 export { codeBlockPlugin } from './plugins/code-block';
 export { horizontalRulePlugin } from './plugins/horizontal-rule';
 export { alignmentPlugin } from './plugins/alignment';
+export { createTextColorPlugin } from './plugins/text-color';
+export type { TextColorConfig } from './plugins/text-color';
+export { createFloatingToolbarPlugin } from './plugins/floating-toolbar';
+export type { FloatingToolbarConfig } from './plugins/floating-toolbar';
+export { createPdfExportPlugin } from './plugins/pdf-export';
+export type { PdfExportConfig } from './plugins/pdf-export';
 
 // ─── UI Utilities ───────────────────────────────────────────
 export { createModal } from './ui/modal';
 export type { ModalOptions, ModalField } from './ui/modal';
+export { createColorPicker, DEFAULT_COLORS } from './ui/color-picker';
+export type { ColorPickerOptions } from './ui/color-picker';
 
 // ─── Icons ───────────────────────────────────────────────────
 export { ICONS } from './assets/icons';

@@ -68,6 +68,7 @@ export interface EditorSelection {
 export interface ContentState {
   readonly doc: Document;
   readonly selection: EditorSelection | null;
+  readonly storedMarks?: readonly Mark[] | null;
 }
 
 // ─── Operations ──────────────────────────────────────────────
@@ -105,6 +106,7 @@ export interface Transaction {
   readonly origin: string;
   readonly timestamp: number;
   readonly doc?: Document;
+  readonly storedMarks?: readonly Mark[] | null;
 }
 
 // ─── Commands ────────────────────────────────────────────────
@@ -186,6 +188,7 @@ export interface ToolbarItemSpec {
   readonly isDisabled?: (state: ContentState) => boolean;
   readonly group?: string;
   readonly order?: number;
+  readonly dropdown?: (state: ContentState, anchorEl: HTMLElement, executeCommand: (name: string, args?: Record<string, unknown>) => boolean) => { el: HTMLElement; destroy: () => void };
 }
 
 // ─── Plugin ──────────────────────────────────────────────────

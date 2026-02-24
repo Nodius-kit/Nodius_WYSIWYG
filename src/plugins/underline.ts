@@ -1,52 +1,6 @@
-import type { PluginDefinition, EditorInterface, ContentState, Mark } from '../core/types';
-import { isTextNode } from '../core/types';
+import type { PluginDefinition } from '../core/types';
+import { isMarkActive, toggleMarkOrStore } from '../core/mark-utils';
 import { ICONS } from '../assets/icons';
-
-function selectionHasMark(state: ContentState, markType: string): boolean {
-  if (!state.selection) return false;
-  const { anchor } = state.selection;
-  const block = state.doc.children[anchor.blockIndex];
-  if (!block) return false;
-
-  let pos = 0;
-  for (const child of block.children) {
-    if (!isTextNode(child)) continue;
-    const end = pos + child.text.length;
-    if (anchor.offset >= pos && anchor.offset <= end) {
-      return child.marks.some((m) => m.type === markType);
-    }
-    pos = end;
-  }
-  return false;
-}
-
-function toggleMark(editor: EditorInterface, markType: string): boolean {
-  const state = editor.getState();
-  if (!state.selection) return false;
-
-  const { anchor, focus } = state.selection;
-  if (anchor.blockIndex !== focus.blockIndex) return false;
-
-  const from = Math.min(anchor.offset, focus.offset);
-  const to = Math.max(anchor.offset, focus.offset);
-  if (from === to) return false;
-
-  const hasMark = selectionHasMark(state, markType);
-  const mark: Mark = { type: markType };
-
-  editor.dispatch({
-    operations: [{
-      type: hasMark ? 'remove_mark' : 'add_mark',
-      path: [anchor.blockIndex],
-      offset: from,
-      length: to - from,
-      mark,
-    }],
-    origin: 'command',
-    timestamp: Date.now(),
-  });
-  return true;
-}
 
 export const underlinePlugin: PluginDefinition = {
   name: 'underline',
@@ -58,7 +12,7 @@ export const underlinePlugin: PluginDefinition = {
   }],
 
   init(ctx) {
-    ctx.commands.register('toggle-underline', (editor) => toggleMark(editor, 'underline'));
+    ctx.commands.register('toggle-underline', (editor) => toggleMarkOrStore(editor, 'underline'));
     ctx.keymap.register('Mod-u', 'toggle-underline');
   },
 
@@ -67,7 +21,7 @@ export const underlinePlugin: PluginDefinition = {
     icon: ICONS.underline,
     title: 'Underline (Ctrl+U)',
     command: 'toggle-underline',
-    isActive: (state) => selectionHasMark(state, 'underline'),
+    isActive: (state) => isMarkActive(state, 'underline'),
     order: 30,
   }],
 };

@@ -7,7 +7,7 @@ import {
   strikethroughPlugin,
   subscriptPlugin,
   superscriptPlugin,
-  highlightPlugin,
+  createHighlightPlugin,
   headingPlugin,
   listsPlugin,
   blockquotePlugin,
@@ -22,6 +22,9 @@ import {
   createImageToolbarPlugin,
   createHtmlViewPlugin,
   createLinkPlugin,
+  createTextColorPlugin,
+  createFloatingToolbarPlugin,
+  createPdfExportPlugin,
   paragraphNodeType,
   type CoreEditor,
   type PluginDefinition,
@@ -86,9 +89,14 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     createPlugin: () => superscriptPlugin,
   },
   {
-    id: 'highlight', label: 'Highlight', importName: 'highlightPlugin',
-    isFactory: false, toolbarItems: ['highlight'],
-    createPlugin: () => highlightPlugin,
+    id: 'highlight', label: 'Highlight', importName: 'createHighlightPlugin',
+    isFactory: true, factoryCall: 'createHighlightPlugin()', toolbarItems: ['highlight'],
+    createPlugin: () => createHighlightPlugin(),
+  },
+  {
+    id: 'text-color', label: 'Text Color', importName: 'createTextColorPlugin',
+    isFactory: true, factoryCall: 'createTextColorPlugin()', toolbarItems: ['text-color'],
+    createPlugin: () => createTextColorPlugin(),
   },
   {
     id: 'blockquote', label: 'Blockquote', importName: 'blockquotePlugin',
@@ -147,10 +155,22 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
     createPlugin: () => createLinkPlugin(),
   },
   {
+    id: 'pdf-export', label: 'PDF Export', importName: 'createPdfExportPlugin',
+    isFactory: true, factoryCall: 'createPdfExportPlugin()', toolbarItems: ['pdf-export'],
+    createPlugin: () => createPdfExportPlugin(),
+  },
+  {
+    id: 'floating-toolbar', label: 'Floating Toolbar', importName: 'createFloatingToolbarPlugin',
+    isFactory: true, factoryCall: 'createFloatingToolbarPlugin()', toolbarItems: [],
+    createPlugin: () => createFloatingToolbarPlugin(),
+  },
+  {
     id: 'html-view', label: 'HTML View', importName: 'createHtmlViewPlugin',
     isFactory: true, factoryCall: 'createHtmlViewPlugin({ nodeTypes, markTypes })',
     destructure: '{ plugin: htmlViewPlugin }', toolbarItems: ['html-view'],
     createPlugin: () => {
+      const highlightPlugin = createHighlightPlugin();
+      const textColorPlugin = createTextColorPlugin();
       const nodeTypes: NodeTypeSpec[] = [
         paragraphNodeType, ...headingPlugin.nodeTypes!, ...listsPlugin.nodeTypes!,
         ...blockquotePlugin.nodeTypes!, ...codeBlockPlugin.nodeTypes!, ...horizontalRulePlugin.nodeTypes!,
@@ -158,7 +178,7 @@ const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
       const markTypes: MarkTypeSpec[] = [
         ...boldPlugin.markTypes!, ...italicPlugin.markTypes!, ...underlinePlugin.markTypes!,
         ...strikethroughPlugin.markTypes!, ...subscriptPlugin.markTypes!, ...superscriptPlugin.markTypes!,
-        ...highlightPlugin.markTypes!,
+        ...highlightPlugin.markTypes!, ...textColorPlugin.markTypes!,
       ];
       return createHtmlViewPlugin({ nodeTypes, markTypes }).plugin;
     },
@@ -188,7 +208,7 @@ function getDefaults() {
     toolbar: [
       'bold', 'italic', 'underline', 'strikethrough',
       '|',
-      'subscript', 'superscript', 'highlight',
+      'subscript', 'superscript', 'highlight', 'text-color',
       '|',
       'link',
       '|',
@@ -201,6 +221,8 @@ function getDefaults() {
       'align-left', 'align-center', 'align-right', 'align-justify',
       '|',
       'image', 'image-upload',
+      '|',
+      'pdf-export',
     ],
   };
 }

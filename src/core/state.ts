@@ -1,4 +1,4 @@
-import type { ContentState, Document, Transaction, EditorSelection } from './types';
+import type { ContentState, Document, Transaction, EditorSelection, Mark } from './types';
 import { generateId, createElement, createTextNode } from './types';
 import { applyTransaction } from './operations';
 
@@ -32,6 +32,13 @@ export class StateManager {
       this.state = { ...this.state, selection: tr.selection };
     }
 
+    // Propagate storedMarks: explicit value overrides, otherwise preserve previous
+    if (tr.storedMarks !== undefined) {
+      this.state = { ...this.state, storedMarks: tr.storedMarks };
+    } else if (prevState.storedMarks !== undefined) {
+      this.state = { ...this.state, storedMarks: prevState.storedMarks };
+    }
+
     for (const listener of this.listeners) {
       listener(prevState, this.state);
     }
@@ -41,6 +48,10 @@ export class StateManager {
 
   setSelection(selection: EditorSelection | null): void {
     this.state = { ...this.state, selection };
+  }
+
+  setStoredMarks(marks: readonly Mark[] | null): void {
+    this.state = { ...this.state, storedMarks: marks };
   }
 
   subscribe(listener: (prevState: ContentState, nextState: ContentState) => void): () => void {
