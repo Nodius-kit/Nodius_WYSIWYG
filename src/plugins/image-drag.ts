@@ -52,11 +52,6 @@ function getDocBlocks(editable: HTMLElement): HTMLElement[] {
   return result;
 }
 
-/** Map a block DOM element to its document index (filtering out UI elements). */
-function blockDocIndex(editable: HTMLElement, blockEl: HTMLElement): number {
-  return getDocBlocks(editable).indexOf(blockEl);
-}
-
 /** Walk up from target to find the image block element inside editable. */
 function findImageBlockEl(target: HTMLElement, editable: HTMLElement): HTMLElement | null {
   let el: HTMLElement | null = target;
@@ -114,14 +109,21 @@ export function createImageDragPlugin(): PluginDefinition {
       let startY = 0;
       let draggedNodeId: string | null = null;  // stable ID of the dragged image
 
-      /** Find the current document index of the dragged node by its ID. */
-      function findCurrentIndex(): number {
+      /** Find the current document index of the dragged node by its ID in the DOM. */
+      function findCurrentIndexInDOM(): number {
         if (!editable || !draggedNodeId) return -1;
         const blocks = getDocBlocks(editable);
         for (let i = 0; i < blocks.length; i++) {
           if (blocks[i].getAttribute('data-node-id') === draggedNodeId) return i;
         }
         return -1;
+      }
+
+      /** Verify the dragged node exists in the document state (not just DOM). */
+      function nodeExistsInState(): boolean {
+        if (!draggedNodeId) return false;
+        const doc = ctx.editor.getDoc();
+        return doc.children.some((c) => c.id === draggedNodeId);
       }
 
       function highlightDragged(): void {
@@ -140,6 +142,15 @@ export function createImageDragPlugin(): PluginDefinition {
           .forEach((el) => el.classList.remove('nodius-image-dragging'));
       }
 
+      function reset(): void {
+        if (dragActive) clearHighlight();
+        pending = false;
+        dragActive = false;
+        draggedNodeId = null;
+      }
+
+      // ─── Event handlers ────────────────────────────────────
+
       function onMouseDown(e: MouseEvent): void {
         if (!editable || e.button !== 0) return;
         const target = e.target as HTMLElement;
@@ -150,6 +161,7 @@ export function createImageDragPlugin(): PluginDefinition {
         if (!nodeId) return;
 
         // Don't preventDefault — allow normal clicks, image toolbar, etc.
+        // Native drag is blocked by the dragstart handler below.
         pending = true;
         dragActive = false;
         startX = e.clientX;
@@ -161,10 +173,14 @@ export function createImageDragPlugin(): PluginDefinition {
         if (!pending && !dragActive) return;
         if (!editable) return;
 
+        // Threshold check: don't start drag until mouse moves enough
         if (pending && !dragActive) {
           const dx = Math.abs(e.clientX - startX);
           const dy = Math.abs(e.clientY - startY);
           if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+
+          // Verify the node still exists before starting drag
+          if (!nodeExistsInState()) { reset(); return; }
 
           dragActive = true;
           pending = false;
@@ -174,13 +190,20 @@ export function createImageDragPlugin(): PluginDefinition {
         if (!dragActive) return;
         e.preventDefault(); // prevent text selection during drag
 
-        const currentIdx = findCurrentIndex();
+        // Find current position of the dragged node by its stable ID
+        const currentIdx = findCurrentIndexInDOM();
         if (currentIdx === -1) { reset(); return; }
+
+        // Verify state-DOM consistency
+        if (!nodeExistsInState()) { reset(); return; }
 
         const midpoints = getBlockMidpoints(editable);
         const dropSlot = resolveDropSlot(midpoints, e.clientY);
 
         if (isDragNoop(currentIdx, dropSlot)) return;
+
+        // Record child count before move to verify no duplication
+        const childCountBefore = ctx.editor.getDoc().children.length;
 
         ctx.editor.dispatch({
           operations: [{
@@ -194,33 +217,69 @@ export function createImageDragPlugin(): PluginDefinition {
           timestamp: Date.now(),
         });
 
+        // Safety: verify no duplication occurred
+        const childCountAfter = ctx.editor.getDoc().children.length;
+        if (childCountAfter !== childCountBefore) {
+          // Something went wrong — abort drag
+          reset();
+          return;
+        }
+
         // Re-highlight after DOM reconcile (synchronous)
         highlightDragged();
-      }
-
-      function reset(): void {
-        if (dragActive) clearHighlight();
-        pending = false;
-        dragActive = false;
-        draggedNodeId = null;
       }
 
       function onMouseUp(): void {
         reset();
       }
 
+      /**
+       * Prevent native HTML5 drag on images.
+       * Without this, the browser intercepts mousedown on images, fires
+       * drag/dragend events (not mousemove/mouseup), and moves the DOM
+       * element outside our state management — causing duplication.
+       */
+      function onDragStart(e: Event): void {
+        const event = e as DragEvent;
+        const target = event.target as HTMLElement;
+        if (
+          target.tagName === 'IMG' ||
+          target.closest('[data-node-type="image"]')
+        ) {
+          event.preventDefault();
+        }
+      }
+
+      /**
+       * Safety net: if a native drag somehow starts (e.g. browser quirk),
+       * reset our state when it ends so we don't get stuck in pending mode.
+       */
+      function onDragEnd(): void {
+        if (pending || dragActive) {
+          reset();
+        }
+      }
+
+      // ─── Lifecycle ─────────────────────────────────────────
+
       function attach(): void {
         editable = ctx.editor.getEditableElement();
         if (!editable) return;
         editable.addEventListener('mousedown', onMouseDown);
+        editable.addEventListener('dragstart', onDragStart);
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('dragend', onDragEnd);
       }
 
       function detach(): void {
-        if (editable) editable.removeEventListener('mousedown', onMouseDown);
+        if (editable) {
+          editable.removeEventListener('mousedown', onMouseDown);
+          editable.removeEventListener('dragstart', onDragStart);
+        }
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('dragend', onDragEnd);
       }
 
       const unsubMount = ctx.editor.on('mount', () => attach());

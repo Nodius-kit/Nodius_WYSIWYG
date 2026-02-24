@@ -341,6 +341,52 @@ describe('Image Drag Plugin', () => {
     expect(editor.getState().doc.children[1].id).toBe(imgId);
     cleanup(editor, container);
   });
+
+  it('all node IDs remain unique after multiple moves', () => {
+    const doc = makeDoc([
+      { type: 'paragraph', text: 'A' },
+      { type: 'image' },
+      { type: 'paragraph', text: 'B' },
+    ]);
+    const { editor, container } = mountEditor(doc);
+
+    // Move image to end
+    editor.dispatch({
+      operations: [{ type: 'move_node', path: [], offset: 1, targetPath: [], data: 3 }],
+      origin: 'command', timestamp: Date.now(),
+    });
+
+    // Move image back to start
+    editor.dispatch({
+      operations: [{ type: 'move_node', path: [], offset: 2, targetPath: [], data: 0 }],
+      origin: 'command', timestamp: Date.now(),
+    });
+
+    // Verify all IDs are unique (no duplication)
+    const ids = editor.getState().doc.children.map((c) => c.id);
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(ids.length);
+    expect(editor.getState().doc.children.length).toBe(3);
+    cleanup(editor, container);
+  });
+
+  it('move_node is idempotent: same source and adjacent target is noop', () => {
+    const doc = makeDoc([{ type: 'image' }, { type: 'paragraph', text: 'P1' }]);
+    const { editor, container } = mountEditor(doc);
+    const imgId = editor.getState().doc.children[0].id;
+
+    // move_node from 0 to slot 1 = noop (slot right after source)
+    // The engine adjusts: adjustedToOffset = 1 - 1 = 0, so no actual move
+    editor.dispatch({
+      operations: [{ type: 'move_node', path: [], offset: 0, targetPath: [], data: 1 }],
+      origin: 'command', timestamp: Date.now(),
+    });
+
+    expect(editor.getState().doc.children[0].id).toBe(imgId);
+    expect(editor.getState().doc.children[0].type).toBe('image');
+    expect(editor.getState().doc.children.length).toBe(2);
+    cleanup(editor, container);
+  });
 });
 
 // ─── Void Block Deletion via Keyboard ────────────────────────

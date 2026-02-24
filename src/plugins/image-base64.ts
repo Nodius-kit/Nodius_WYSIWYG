@@ -420,9 +420,13 @@ export function createImageBase64Plugin(): PluginDefinition {
         return true;
       });
 
-      // Handle paste with images
-      const editableEl = ctx.editor.getEditableElement();
-      if (editableEl) {
+      // DOM listeners need to be deferred to mount because getEditableElement()
+      // returns null during init (plugins init before mount).
+      function attachDomListeners(): void {
+        const editableEl = ctx.editor.getEditableElement();
+        if (!editableEl) return;
+
+        // Handle paste with images
         editableEl.addEventListener('paste', async (e: Event) => {
           const event = e as ClipboardEvent;
           const items = event.clipboardData?.items;
@@ -482,6 +486,10 @@ export function createImageBase64Plugin(): PluginDefinition {
           }
         });
       }
+
+      // Attach now if already mounted, and also on future mount events
+      attachDomListeners();
+      ctx.editor.on('mount', attachDomListeners);
     },
 
     toolbarItems: [
