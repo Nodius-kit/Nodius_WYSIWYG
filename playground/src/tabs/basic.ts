@@ -1,6 +1,7 @@
 import {
   createEditor,
   createHistoryPlugin,
+  baseStylesPlugin,
   boldPlugin,
   italicPlugin,
   underlinePlugin,
@@ -20,10 +21,10 @@ import {
   createImageResizePlugin,
   createImageCropPlugin,
   createImageToolbarPlugin,
+  createImageDragPlugin,
   createHtmlViewPlugin,
   createLinkPlugin,
   createTextColorPlugin,
-  createFloatingToolbarPlugin,
   createPdfExportPlugin,
   paragraphNodeType,
   type CoreEditor,
@@ -50,7 +51,7 @@ export function mount(container: HTMLElement): void {
       <p class="shortcuts">
         <strong>New:</strong>
         Text Color (dropdown) &middot; Highlight Color (dropdown) &middot;
-        Floating Toolbar (select text) &middot; Export PDF
+        Image Drag &amp; Drop &middot; Export PDF
       </p>
     </div>
     <div class="panel">
@@ -63,7 +64,6 @@ export function mount(container: HTMLElement): void {
   const linkPlugin = createLinkPlugin();
   const highlightPlugin = createHighlightPlugin();
   const textColorPlugin = createTextColorPlugin();
-  const floatingToolbarPlugin = createFloatingToolbarPlugin();
   const pdfExportPlugin = createPdfExportPlugin();
 
   // Fake upload function for image-remote demo (converts to data URL)
@@ -99,6 +99,7 @@ export function mount(container: HTMLElement): void {
 
   editor = createEditor({
     plugins: [
+      baseStylesPlugin,
       boldPlugin,
       italicPlugin,
       underlinePlugin,
@@ -119,9 +120,9 @@ export function mount(container: HTMLElement): void {
       createImageResizePlugin(),
       createImageCropPlugin(),
       createImageToolbarPlugin(),
+      createImageDragPlugin(),
       htmlViewPlugin,
       pdfExportPlugin,
-      floatingToolbarPlugin,
       toolbarPlugin,
       historyPlugin,
     ],

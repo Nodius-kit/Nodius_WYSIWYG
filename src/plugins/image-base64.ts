@@ -59,8 +59,8 @@ function setImageAlign(editor: EditorInterface, align: string): boolean {
 
 function getAlignStyle(align: unknown): string {
   switch (align) {
-    case 'left': return 'float:left;margin-right:1em;';
-    case 'right': return 'float:right;margin-left:1em;';
+    case 'left': return 'float:left;margin-right:1em;margin-bottom:0.5em;max-width:50%;';
+    case 'right': return 'float:right;margin-left:1em;margin-bottom:0.5em;max-width:50%;';
     default: return 'display:block;margin-left:auto;margin-right:auto;';
   }
 }
@@ -284,8 +284,15 @@ export function createImageBase64Plugin(): PluginDefinition {
           'data-align': String(node.attrs.align ?? 'center'),
         };
         if (caption) {
-          return ['figure', { style: 'text-align:center;margin:1em 0;', 'data-caption': caption },
-            ['img', imgAttrs],
+          const figureStyle = node.attrs.align === 'left' || node.attrs.align === 'right'
+            ? `${style}margin:1em 0;`
+            : 'text-align:center;margin:1em 0;';
+          const captionedImgAttrs: Record<string, string> = { ...imgAttrs };
+          if (node.attrs.align === 'left' || node.attrs.align === 'right') {
+            captionedImgAttrs.style = 'width:100%;height:auto;';
+          }
+          return ['figure', { style: figureStyle, 'data-caption': caption },
+            ['img', captionedImgAttrs],
             ['figcaption', { style: 'font-size:0.875em;color:#64748b;margin-top:0.5em;' }, caption],
           ];
         }

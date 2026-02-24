@@ -1,0 +1,238 @@
+import type { PluginDefinition, PluginContext, PluginInstance } from '../core/types';
+
+// ─── Pure helpers (exported for testing) ─────────────────────
+
+/** Threshold in px before a mousedown is considered a drag. */
+export const DRAG_THRESHOLD = 5;
+
+/**
+ * Given block midpoints (Y centres) and a cursor Y,
+ * return the insertion slot (0 = before first block, N = after last).
+ */
+export function resolveDropSlot(
+  blockMidpoints: readonly number[],
+  cursorY: number,
+): number {
+  for (let i = 0; i < blockMidpoints.length; i++) {
+    if (cursorY < blockMidpoints[i]) return i;
+  }
+  return blockMidpoints.length;
+}
+
+/**
+ * Determine whether a drag from `sourceIndex` to `dropSlot` is a no-op.
+ * A no-op is when the image would stay in the same position.
+ */
+export function isDragNoop(sourceIndex: number, dropSlot: number): boolean {
+  // Dropping directly on or right after the source position = no change
+  return dropSlot === sourceIndex || dropSlot === sourceIndex + 1;
+}
+
+/**
+ * Compute the final document index after a move_node from sourceIndex
+ * to dropSlot (raw slot). The engine adjusts toOffset internally.
+ */
+export function computeFinalIndex(sourceIndex: number, dropSlot: number): number {
+  return dropSlot > sourceIndex ? dropSlot - 1 : dropSlot;
+}
+
+// ─── DOM helpers ─────────────────────────────────────────────
+
+/**
+ * Return only the actual document block elements from `editable.children`.
+ * Filters out UI overlays (image-toolbar, floating-toolbar, etc.)
+ * by requiring `data-node-id` attribute.
+ */
+function getDocBlocks(editable: HTMLElement): HTMLElement[] {
+  const result: HTMLElement[] = [];
+  for (let i = 0; i < editable.children.length; i++) {
+    const el = editable.children[i] as HTMLElement;
+    if (el.hasAttribute('data-node-id')) result.push(el);
+  }
+  return result;
+}
+
+/** Map a block DOM element to its document index (filtering out UI elements). */
+function blockDocIndex(editable: HTMLElement, blockEl: HTMLElement): number {
+  return getDocBlocks(editable).indexOf(blockEl);
+}
+
+/** Walk up from target to find the image block element inside editable. */
+function findImageBlockEl(target: HTMLElement, editable: HTMLElement): HTMLElement | null {
+  let el: HTMLElement | null = target;
+  while (el && el !== editable) {
+    if (el.parentElement === editable && el.hasAttribute('data-node-id')) {
+      if (el.getAttribute('data-node-type') === 'image') return el;
+      return null;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+/** Get Y midpoints for all document blocks. */
+function getBlockMidpoints(editable: HTMLElement): number[] {
+  return getDocBlocks(editable).map((el) => {
+    const r = el.getBoundingClientRect();
+    return r.top + r.height / 2;
+  });
+}
+
+// ─── CSS injection ───────────────────────────────────────────
+
+let dragCssInjected = false;
+
+function injectDragStyles(): void {
+  if (dragCssInjected) return;
+  dragCssInjected = true;
+  const style = document.createElement('style');
+  style.setAttribute('data-nodius-image-drag', '');
+  style.textContent = `
+.nodius-image-dragging {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+`;
+  document.head.appendChild(style);
+}
+
+// ─── Plugin ──────────────────────────────────────────────────
+
+export function createImageDragPlugin(): PluginDefinition {
+  return {
+    name: 'image-drag',
+    dependencies: ['image-base64'],
+
+    init(ctx: PluginContext): PluginInstance {
+      injectDragStyles();
+
+      let editable: HTMLElement | null = null;
+      let pending = false;       // mousedown captured, waiting for threshold
+      let dragActive = false;    // threshold exceeded, drag in progress
+      let startX = 0;
+      let startY = 0;
+      let draggedNodeId: string | null = null;  // stable ID of the dragged image
+
+      /** Find the current document index of the dragged node by its ID. */
+      function findCurrentIndex(): number {
+        if (!editable || !draggedNodeId) return -1;
+        const blocks = getDocBlocks(editable);
+        for (let i = 0; i < blocks.length; i++) {
+          if (blocks[i].getAttribute('data-node-id') === draggedNodeId) return i;
+        }
+        return -1;
+      }
+
+      function highlightDragged(): void {
+        if (!editable || !draggedNodeId) return;
+        const blocks = getDocBlocks(editable);
+        for (const el of blocks) {
+          if (el.getAttribute('data-node-id') === draggedNodeId) {
+            el.classList.add('nodius-image-dragging');
+          }
+        }
+      }
+
+      function clearHighlight(): void {
+        if (!editable) return;
+        editable.querySelectorAll('.nodius-image-dragging')
+          .forEach((el) => el.classList.remove('nodius-image-dragging'));
+      }
+
+      function onMouseDown(e: MouseEvent): void {
+        if (!editable || e.button !== 0) return;
+        const target = e.target as HTMLElement;
+        const blockEl = findImageBlockEl(target, editable);
+        if (!blockEl) return;
+
+        const nodeId = blockEl.getAttribute('data-node-id');
+        if (!nodeId) return;
+
+        // Don't preventDefault — allow normal clicks, image toolbar, etc.
+        pending = true;
+        dragActive = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        draggedNodeId = nodeId;
+      }
+
+      function onMouseMove(e: MouseEvent): void {
+        if (!pending && !dragActive) return;
+        if (!editable) return;
+
+        if (pending && !dragActive) {
+          const dx = Math.abs(e.clientX - startX);
+          const dy = Math.abs(e.clientY - startY);
+          if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return;
+
+          dragActive = true;
+          pending = false;
+          highlightDragged();
+        }
+
+        if (!dragActive) return;
+        e.preventDefault(); // prevent text selection during drag
+
+        const currentIdx = findCurrentIndex();
+        if (currentIdx === -1) { reset(); return; }
+
+        const midpoints = getBlockMidpoints(editable);
+        const dropSlot = resolveDropSlot(midpoints, e.clientY);
+
+        if (isDragNoop(currentIdx, dropSlot)) return;
+
+        ctx.editor.dispatch({
+          operations: [{
+            type: 'move_node',
+            path: [],
+            offset: currentIdx,
+            targetPath: [],
+            data: dropSlot,
+          }],
+          origin: 'command',
+          timestamp: Date.now(),
+        });
+
+        // Re-highlight after DOM reconcile (synchronous)
+        highlightDragged();
+      }
+
+      function reset(): void {
+        if (dragActive) clearHighlight();
+        pending = false;
+        dragActive = false;
+        draggedNodeId = null;
+      }
+
+      function onMouseUp(): void {
+        reset();
+      }
+
+      function attach(): void {
+        editable = ctx.editor.getEditableElement();
+        if (!editable) return;
+        editable.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+
+      function detach(): void {
+        if (editable) editable.removeEventListener('mousedown', onMouseDown);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      const unsubMount = ctx.editor.on('mount', () => attach());
+      attach();
+
+      return {
+        destroy() {
+          unsubMount();
+          detach();
+          clearHighlight();
+        },
+      };
+    },
+  };
+}

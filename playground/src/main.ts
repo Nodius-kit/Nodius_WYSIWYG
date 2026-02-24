@@ -2,6 +2,7 @@ import './styles.css';
 import * as basic from './tabs/basic';
 import * as collaborative from './tabs/collaborative';
 import * as customPlugin from './tabs/custom-plugin';
+import * as bubble from './tabs/bubble';
 import * as builder from './tabs/builder';
 
 interface Tab {
@@ -13,6 +14,7 @@ const TABS: Record<string, Tab> = {
   basic,
   collaborative,
   'custom-plugin': customPlugin,
+  bubble,
   builder,
 };
 

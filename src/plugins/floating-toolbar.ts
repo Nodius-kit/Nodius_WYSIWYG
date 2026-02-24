@@ -68,6 +68,7 @@ export function createFloatingToolbarPlugin(config?: FloatingToolbarConfig): Plu
 
   return {
     name: 'floating-toolbar',
+    dependencies: ['base-styles'],
 
     init(ctx: PluginContext): PluginInstance {
       injectFloatingStyles();

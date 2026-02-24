@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createEditor } from '../../src/core/editor';
 import { boldPlugin } from '../../src/plugins/bold';
 import { italicPlugin } from '../../src/plugins/italic';
+import { baseStylesPlugin } from '../../src/plugins/base-styles';
 import { toolbarPlugin } from '../../src/plugins/toolbar';
 
 describe('Toolbar Plugin', () => {
@@ -14,37 +15,37 @@ describe('Toolbar Plugin', () => {
   });
 
   it('should render toolbar element', () => {
-    const editor = createEditor({ plugins: [boldPlugin, italicPlugin, toolbarPlugin] });
+    const editor = createEditor({ plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin] });
     editor.mount(container);
     expect(container.querySelector('.nodius-toolbar')).not.toBeNull();
     editor.destroy();
   });
 
   it('should render buttons for each toolbar item', () => {
-    const editor = createEditor({ plugins: [boldPlugin, italicPlugin, toolbarPlugin] });
+    const editor = createEditor({ plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin] });
     editor.mount(container);
     const buttons = container.querySelectorAll('.nodius-toolbar-btn');
     expect(buttons.length).toBeGreaterThanOrEqual(2);
     editor.destroy();
   });
 
-  it('should inject default CSS', () => {
-    const editor = createEditor({ plugins: [toolbarPlugin] });
+  it('should inject toolbar CSS', () => {
+    const editor = createEditor({ plugins: [baseStylesPlugin, toolbarPlugin] });
     editor.mount(container);
-    const style = document.querySelector('style[data-nodius]');
+    const style = document.querySelector('style[data-nodius-toolbar]');
     expect(style).not.toBeNull();
     editor.destroy();
   });
 
-  it('should not inject CSS twice', () => {
-    const editor1 = createEditor({ plugins: [toolbarPlugin] });
+  it('should not inject toolbar CSS twice', () => {
+    const editor1 = createEditor({ plugins: [baseStylesPlugin, toolbarPlugin] });
     editor1.mount(container);
-    const editor2 = createEditor({ plugins: [toolbarPlugin] });
+    const editor2 = createEditor({ plugins: [baseStylesPlugin, toolbarPlugin] });
     const container2 = document.createElement('div');
     document.body.appendChild(container2);
     editor2.mount(container2);
 
-    const styles = document.querySelectorAll('style[data-nodius]');
+    const styles = document.querySelectorAll('style[data-nodius-toolbar]');
     expect(styles.length).toBe(1);
 
     editor1.destroy();
@@ -53,7 +54,7 @@ describe('Toolbar Plugin', () => {
   });
 
   it('should remove toolbar on destroy', () => {
-    const editor = createEditor({ plugins: [boldPlugin, toolbarPlugin] });
+    const editor = createEditor({ plugins: [baseStylesPlugin, boldPlugin, toolbarPlugin] });
     editor.mount(container);
     expect(container.querySelector('.nodius-toolbar')).not.toBeNull();
     editor.destroy();
@@ -63,7 +64,7 @@ describe('Toolbar Plugin', () => {
   describe('Configurable toolbar layout', () => {
     it('should render only specified items when toolbar config is provided', () => {
       const editor = createEditor({
-        plugins: [boldPlugin, italicPlugin, toolbarPlugin],
+        plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin],
         toolbar: ['bold', 'italic'],
       });
       editor.mount(container);
@@ -74,7 +75,7 @@ describe('Toolbar Plugin', () => {
 
     it('should respect configured order', () => {
       const editor = createEditor({
-        plugins: [boldPlugin, italicPlugin, toolbarPlugin],
+        plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin],
         toolbar: ['italic', 'bold'],
       });
       editor.mount(container);
@@ -87,7 +88,7 @@ describe('Toolbar Plugin', () => {
 
     it('should render separators from toolbar config', () => {
       const editor = createEditor({
-        plugins: [boldPlugin, italicPlugin, toolbarPlugin],
+        plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin],
         toolbar: ['bold', '|', 'italic'],
       });
       editor.mount(container);
@@ -100,7 +101,7 @@ describe('Toolbar Plugin', () => {
 
     it('should skip unknown item names', () => {
       const editor = createEditor({
-        plugins: [boldPlugin, italicPlugin, toolbarPlugin],
+        plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin],
         toolbar: ['bold', 'nonexistent'],
       });
       editor.mount(container);
@@ -111,7 +112,7 @@ describe('Toolbar Plugin', () => {
 
     it('should fall back to default behavior when no toolbar config', () => {
       const editor = createEditor({
-        plugins: [boldPlugin, italicPlugin, toolbarPlugin],
+        plugins: [baseStylesPlugin, boldPlugin, italicPlugin, toolbarPlugin],
       });
       editor.mount(container);
       const buttons = container.querySelectorAll('.nodius-toolbar-btn');

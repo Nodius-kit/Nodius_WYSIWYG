@@ -89,17 +89,17 @@ export function createPdfExportPlugin(config?: PdfExportConfig): PluginDefinitio
         iframeDoc.close();
 
         // Wait for content to render then print
-        iframe.onload = () => {
+        let printed = false;
+        const doPrint = () => {
+          if (printed) return;
+          printed = true;
           iframe.contentWindow?.print();
-          // Clean up after print dialog closes
           setTimeout(() => iframe.remove(), 1000);
         };
 
-        // If already loaded (synchronous write)
-        setTimeout(() => {
-          iframe.contentWindow?.print();
-          setTimeout(() => iframe.remove(), 1000);
-        }, 100);
+        iframe.onload = doPrint;
+        // Fallback if onload doesn't fire (synchronous write)
+        setTimeout(doPrint, 100);
 
         return true;
       });

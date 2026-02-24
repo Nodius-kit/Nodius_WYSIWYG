@@ -61,6 +61,7 @@ export {
 } from './core/types';
 
 // ─── Standard Plugins ────────────────────────────────────────
+export { baseStylesPlugin } from './plugins/base-styles';
 export { boldPlugin } from './plugins/bold';
 export { italicPlugin } from './plugins/italic';
 export { underlinePlugin } from './plugins/underline';
@@ -74,6 +75,7 @@ export { createImageCropPlugin } from './plugins/image-crop';
 export { createHtmlViewPlugin } from './plugins/html-view';
 export { createLinkPlugin } from './plugins/link';
 export { createImageToolbarPlugin } from './plugins/image-toolbar';
+export { createImageDragPlugin } from './plugins/image-drag';
 export { strikethroughPlugin } from './plugins/strikethrough';
 export { subscriptPlugin } from './plugins/subscript';
 export { superscriptPlugin } from './plugins/superscript';

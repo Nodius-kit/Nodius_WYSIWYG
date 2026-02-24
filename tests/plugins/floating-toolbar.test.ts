@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createEditor } from '../../src/core/editor';
 import { createFloatingToolbarPlugin } from '../../src/plugins/floating-toolbar';
+import { baseStylesPlugin } from '../../src/plugins/base-styles';
 import { boldPlugin } from '../../src/plugins/bold';
 import { italicPlugin } from '../../src/plugins/italic';
 import { createDocWith } from '../helpers';
@@ -33,7 +34,7 @@ describe('Floating Toolbar Plugin', () => {
     const plugin = createFloatingToolbarPlugin();
     const doc = createDocWith([{ type: 'paragraph', text: 'Hello World' }]);
     const editor = createEditor({
-      plugins: [boldPlugin, italicPlugin, plugin],
+      plugins: [baseStylesPlugin, boldPlugin, italicPlugin, plugin],
       initialContent: doc,
     });
     editor.mount(container);
@@ -51,7 +52,7 @@ describe('Floating Toolbar Plugin', () => {
     const plugin = createFloatingToolbarPlugin();
     const doc = createDocWith([{ type: 'paragraph', text: 'Hello World' }]);
     const editor = createEditor({
-      plugins: [boldPlugin, italicPlugin, plugin],
+      plugins: [baseStylesPlugin, boldPlugin, italicPlugin, plugin],
       initialContent: doc,
     });
     editor.mount(container);

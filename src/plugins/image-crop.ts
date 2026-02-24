@@ -13,8 +13,9 @@ const CROP_CSS = `
 .nodius-crop-canvas-wrapper {
   position:relative;display:inline-block;cursor:crosshair;
   overflow:hidden;max-width:80vw;max-height:60vh;
+  user-select:none;-webkit-user-select:none;
 }
-.nodius-crop-canvas-wrapper img { display:block;max-width:80vw;max-height:60vh; }
+.nodius-crop-canvas-wrapper img { display:block;max-width:80vw;max-height:60vh;pointer-events:none; }
 .nodius-crop-selection {
   position:absolute;border:2px dashed #3b82f6;background:rgba(59,130,246,0.1);
   pointer-events:none;
@@ -104,6 +105,7 @@ export function createImageCropPlugin(): PluginDefinition {
     let startY = 0;
 
     wrapper.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // Prevent native image selection / drag
       const rect = wrapper.getBoundingClientRect();
       startX = e.clientX - rect.left;
       startY = e.clientY - rect.top;

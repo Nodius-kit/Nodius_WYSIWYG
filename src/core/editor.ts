@@ -302,6 +302,43 @@ export class CoreEditor implements EditorInterface {
 
     // Then keymap
     this.keymapRegistry.handleKeyDown(event);
+
+    // Void block deletion via Backspace/Delete.
+    // `beforeinput` doesn't fire when the DOM selection is cleared
+    // (which happens for void blocks via removeAllRanges in restore()),
+    // so handle it here from the state selection.
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (event.defaultPrevented) return;
+      const selection = this.stateManager.getState().selection;
+      if (!selection) return;
+      const block = this.getDoc().children[selection.anchor.blockIndex];
+      if (!block) return;
+      const spec = this.schema.getNodeType(block.type);
+      if (spec?.group !== 'void') return;
+
+      event.preventDefault();
+      const ops: Operation[] = [{ type: 'delete_node', path: [], offset: selection.anchor.blockIndex }];
+      const docLen = this.getDoc().children.length;
+      if (docLen === 1) {
+        ops.push({
+          type: 'insert_node', path: [], offset: 0,
+          data: {
+            id: generateId(), kind: 'element' as const, type: 'paragraph', attrs: {},
+            children: [{ id: generateId(), kind: 'text' as const, text: '', marks: [] as const }],
+          },
+        });
+      }
+      const newBlockIndex = docLen === 1 ? 0 : Math.max(0, selection.anchor.blockIndex - 1);
+      this.dispatch({
+        operations: ops,
+        selection: {
+          anchor: { blockIndex: newBlockIndex, path: [], offset: 0 },
+          focus: { blockIndex: newBlockIndex, path: [], offset: 0 },
+        },
+        origin: 'input',
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private handleBeforeInput(event: InputEvent): void {
