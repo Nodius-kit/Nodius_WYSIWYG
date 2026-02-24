@@ -139,11 +139,14 @@ export function createImageResizePlugin(): PluginDefinition {
 
       document.addEventListener('click', onClick);
 
-      // Clear handles when the active image is removed from the DOM
-      // (e.g. deleted via toolbar — the click event on the detached button won't propagate)
+      // Update handles when editor state changes (image moved or deleted)
       const unsubscribe = ctx.editor.on('state:change', () => {
-        if (activeImage && !activeImage.isConnected) {
+        if (!activeImage) return;
+        if (!activeImage.isConnected) {
           clearHandles();
+        } else if (activeHandles.length > 0) {
+          // Image may have moved (e.g. drag reorder) — reposition handles
+          positionHandles(activeImage);
         }
       });
 
