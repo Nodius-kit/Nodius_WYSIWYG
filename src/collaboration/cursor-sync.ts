@@ -23,12 +23,17 @@ export class CursorSyncManager {
    * Call this after applying remote operations to keep cursors in sync.
    */
   mapCursorsThroughOps(ops: readonly Operation[]): void {
+    let changed = false;
     for (const [clientId, cursor] of this.remoteCursors) {
-      const newPosition = mapPosition(cursor.position, ops);
+      // Pre-filter: only ops that could affect this cursor's block
+      const relevantOps = ops.filter(op => opAffectsBlock(op, cursor.position.blockIndex));
+      if (relevantOps.length === 0) continue;
+
+      const newPosition = mapPosition(cursor.position, relevantOps);
       const newSelection = cursor.selection
         ? {
-            anchor: mapPosition(cursor.selection.anchor, ops),
-            focus: mapPosition(cursor.selection.focus, ops),
+            anchor: mapPosition(cursor.selection.anchor, relevantOps),
+            focus: mapPosition(cursor.selection.focus, relevantOps),
           }
         : undefined;
 
@@ -37,8 +42,11 @@ export class CursorSyncManager {
         position: newPosition,
         selection: newSelection,
       });
+      changed = true;
     }
-    this.notifyListeners();
+    if (changed) {
+      this.notifyListeners();
+    }
   }
 
   onChange(listener: () => void): () => void {
@@ -55,6 +63,23 @@ export class CursorSyncManager {
     for (const listener of this.listeners) {
       listener();
     }
+  }
+}
+
+/**
+ * Check if an operation could affect a cursor at the given block index.
+ */
+function opAffectsBlock(op: Operation, blockIndex: number): boolean {
+  switch (op.type) {
+    case 'insert_text':
+    case 'delete_text':
+      return op.path.length >= 1 && op.path[0] === blockIndex;
+    case 'insert_node':
+    case 'delete_node':
+      // Block-level ops at document root can shift any block index
+      return op.path.length === 0;
+    default:
+      return false;
   }
 }
 

@@ -1,6 +1,7 @@
 import {
   createEditor,
   createHistoryPlugin,
+  baseStylesPlugin,
   boldPlugin,
   italicPlugin,
   underlinePlugin,
@@ -48,6 +49,11 @@ interface PluginRegistryEntry {
 }
 
 const PLUGIN_REGISTRY: PluginRegistryEntry[] = [
+  {
+    id: 'base-styles', label: 'Base Styles', importName: 'baseStylesPlugin',
+    isFactory: false, toolbarItems: [], alwaysOn: true,
+    createPlugin: () => baseStylesPlugin,
+  },
   {
     id: 'bold', label: 'Bold', importName: 'boldPlugin',
     isFactory: false, toolbarItems: ['bold'],

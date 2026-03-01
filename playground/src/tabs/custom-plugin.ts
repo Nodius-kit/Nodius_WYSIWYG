@@ -1,6 +1,7 @@
 import {
   createEditor,
   createHistoryPlugin,
+  baseStylesPlugin,
   boldPlugin,
   italicPlugin,
   underlinePlugin,
@@ -147,6 +148,7 @@ export function mount(container: HTMLElement): void {
 
   editor = createEditor({
     plugins: [
+      baseStylesPlugin,
       boldPlugin,
       italicPlugin,
       underlinePlugin,

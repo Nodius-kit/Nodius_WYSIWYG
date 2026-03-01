@@ -55,6 +55,15 @@ function transformPair(
     return [newA, newB];
   }
 
+  // Mark op vs text op: adjust mark offset/length
+  if (isMarkOp(opA) && isTextOp(opB) && markOnSameBlock(opA, opB)) {
+    return transformMarkVsText(opA, opB);
+  }
+  if (isTextOp(opA) && isMarkOp(opB) && markOnSameBlock(opB, opA)) {
+    const [newB, newA] = transformMarkVsText(opB, opA);
+    return [newA, newB];
+  }
+
   // Mark operations are independent unless they affect the same range
   if (isMarkOp(opA) && isMarkOp(opB)) {
     return transformMarkOps(opA, opB);
@@ -236,6 +245,77 @@ function transformMarkOps(
   // Only conflict if they're on the exact same range with the same mark type
   // In that case, both still apply (idempotent)
   return [opA, opB];
+}
+
+// ─── Mark vs Text Transforms ────────────────────────────────
+
+/**
+ * Check if a mark op and a text op target the same block.
+ * Mark ops use `path: [blockIndex]`, text ops use `path: [blockIndex, childIndex]`.
+ */
+function markOnSameBlock(markOp: Operation, textOp: Operation): boolean {
+  if (markOp.path.length >= 1 && textOp.path.length >= 1) {
+    return markOp.path[0] === textOp.path[0];
+  }
+  return false;
+}
+
+/**
+ * Transform a mark op against a concurrent text op.
+ * Adjusts the mark's offset/length when text is inserted or deleted in the same block.
+ */
+function transformMarkVsText(
+  markOp: Operation,
+  textOp: Operation,
+): [Operation, Operation] {
+  const markOffset = markOp.offset ?? 0;
+  const markLength = markOp.length ?? 0;
+  const markEnd = markOffset + markLength;
+  const textOffset = textOp.offset ?? 0;
+
+  if (textOp.type === 'insert_text') {
+    const insertLen = typeof textOp.data === 'string' ? textOp.data.length : 0;
+
+    if (textOffset <= markOffset) {
+      // Insert before mark range — shift mark right
+      return [{ ...markOp, offset: markOffset + insertLen }, textOp];
+    } else if (textOffset >= markEnd) {
+      // Insert after mark range — no change
+      return [markOp, textOp];
+    } else {
+      // Insert inside mark range — expand mark length
+      return [{ ...markOp, length: markLength + insertLen }, textOp];
+    }
+  }
+
+  if (textOp.type === 'delete_text') {
+    const delLen = textOp.length ?? 0;
+    const delEnd = textOffset + delLen;
+
+    if (delEnd <= markOffset) {
+      // Delete before mark — shift mark left
+      return [{ ...markOp, offset: markOffset - delLen }, textOp];
+    } else if (textOffset >= markEnd) {
+      // Delete after mark — no change
+      return [markOp, textOp];
+    } else if (textOffset <= markOffset && delEnd >= markEnd) {
+      // Delete completely covers mark — shrink mark to zero
+      return [{ ...markOp, offset: textOffset, length: 0 }, textOp];
+    } else if (textOffset <= markOffset) {
+      // Delete overlaps start of mark
+      const overlap = delEnd - markOffset;
+      return [{ ...markOp, offset: textOffset, length: markLength - overlap }, textOp];
+    } else if (delEnd >= markEnd) {
+      // Delete overlaps end of mark
+      const overlap = markEnd - textOffset;
+      return [{ ...markOp, length: markLength - overlap }, textOp];
+    } else {
+      // Delete inside mark — shrink mark
+      return [{ ...markOp, length: markLength - delLen }, textOp];
+    }
+  }
+
+  return [markOp, textOp];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────

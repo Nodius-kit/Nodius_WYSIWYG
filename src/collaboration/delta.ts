@@ -56,7 +56,7 @@ function diffBlock(prev: ElementNode, next: ElementNode, path: number[], ops: Op
   }
 
   // Attrs change
-  if (JSON.stringify(prev.attrs) !== JSON.stringify(next.attrs)) {
+  if (!shallowEqual(prev.attrs, next.attrs)) {
     ops.push({ type: 'update_attrs', path, attrs: next.attrs as Record<string, unknown> });
   }
 
@@ -179,6 +179,21 @@ function getBlockTextContent(block: ElementNode): string {
     .filter(isTextNode)
     .map((n) => n.text)
     .join('');
+}
+
+function shallowEqual(
+  a: Readonly<Record<string, unknown>> | undefined,
+  b: Readonly<Record<string, unknown>> | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
 }
 
 /**

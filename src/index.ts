@@ -109,3 +109,7 @@ export { CursorSyncManager, mapPosition } from './collaboration/cursor-sync';
 export { MemoryTransport } from './collaboration/transport';
 export { BatchedTransport } from './collaboration/batched-transport';
 export type { BatchedTransportOptions } from './collaboration/batched-transport';
+export { operationToInstruction, instructionToOperation, deltaToInstructions, instructionsToDelta } from './collaboration/instruction-converter';
+export type { DeltaMeta } from './collaboration/instruction-converter';
+export { InstructionTransport } from './collaboration/instruction-transport';
+export type { InstructionDelta } from './collaboration/instruction-transport';

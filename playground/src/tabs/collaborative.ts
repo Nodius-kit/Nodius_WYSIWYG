@@ -1,6 +1,7 @@
 import {
   createEditor,
   createHistoryPlugin,
+  baseStylesPlugin,
   boldPlugin,
   italicPlugin,
   underlinePlugin,
@@ -27,6 +28,7 @@ import {
   paragraphNodeType,
   MemoryTransport,
   BatchedTransport,
+  InstructionTransport,
   generateDelta,
   type CoreEditor,
   type NodeTypeSpec,
@@ -68,10 +70,12 @@ export function mount(container: HTMLElement): void {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
-  // Linked transports with batching
+  // Linked transports with InstructionBuilder conversion + batching
   const [rawA, rawB] = MemoryTransport.createPair();
-  const transportA = new BatchedTransport(rawA, { flushInterval: 200, maxBatchSize: 30 });
-  const transportB = new BatchedTransport(rawB, { flushInterval: 200, maxBatchSize: 30 });
+  const instrA = new InstructionTransport(rawA);
+  const instrB = new InstructionTransport(rawB);
+  const transportA = new BatchedTransport(instrA, { flushInterval: 200, maxBatchSize: 30 });
+  const transportB = new BatchedTransport(instrB, { flushInterval: 200, maxBatchSize: 30 });
   transportA.connect();
   transportB.connect();
 
@@ -98,6 +102,7 @@ export function mount(container: HTMLElement): void {
   const { plugin: htmlViewB } = createHtmlViewPlugin({ nodeTypes, markTypes });
 
   const sharedPlugins = [
+    baseStylesPlugin,
     boldPlugin, italicPlugin, underlinePlugin,
     strikethroughPlugin, subscriptPlugin, superscriptPlugin,
     headingPlugin, listsPlugin,
